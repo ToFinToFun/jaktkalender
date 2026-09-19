@@ -127,13 +127,28 @@ function nowPosition(r){
   const days=daysBetween(r.start,r.end)+1;
   return (daysBetween(r.start,today)+currentClockMinutes()/1440)/days*100;
 }
+function todayLabel(){
+  const today=stockholmToday();
+  const dateLabel=new Intl.DateTimeFormat('sv-SE',{
+    timeZone:'Europe/Stockholm',
+    day:'numeric',
+    month:'short'
+  }).format(today).replace('.','');
+  const weekday=new Intl.DateTimeFormat('sv-SE',{
+    timeZone:'Europe/Stockholm',
+    weekday:'short'
+  }).format(today).replace('.','');
+  if(state.view==='day')return `NU ${currentClockLabel()}`;
+  if(state.view==='week')return `IDAG ${weekday.toUpperCase()} ${dateLabel.toUpperCase()} · ${currentClockLabel()}`;
+  return `IDAG ${dateLabel.toUpperCase()}`;
+}
 function nowLine(r){
   const left=nowPosition(r);
-  return left===null?'':`<i class="now-line" style="left:${left}%" title="Nu ${currentClockLabel()}"></i>`;
+  return left===null?'':`<i class="now-line" style="left:${left}%" title="${todayLabel()}"></i>`;
 }
 function nowScaleMarker(r){
   const left=nowPosition(r);
-  return left===null?'':`<i class="now-scale-marker" style="left:${left}%"><span>NU ${currentClockLabel()}</span></i>`;
+  return left===null?'':`<i class="now-scale-marker" style="left:${left}%"><span>${todayLabel()}</span></i>`;
 }
 let suppressScrollNavigation=false,scrollTimer=null;
 function alignScroller(nav,current){
