@@ -1,5 +1,5 @@
 import { DEFAULT_LOCATION } from '../js/data.js';
-import { activeRules, dailySegments, seasonState, sunSummary, speciesRelevant } from '../js/rules.js';
+import { activeRules, dailySegments, seasonState, sunSummary, speciesRelevant, inferSpecialAreas } from '../js/rules.js';
 
 const D = value => new Date(value + 'T12:00:00Z');
 const assert = (condition, message) => {
@@ -52,6 +52,20 @@ assert(
   seasonState('falthare', D('2027-08-25'), lulea) === 'off',
   'From 2027 northern field hare is not open on 25 Aug'
 );
+
+const pajalaGeo = inferSpecialAreas({name:'Pajala',lat:67.2,lon:23.4,county:'Norrbotten County',municipality:'Pajala Municipality',special:{}});
+assert(pajalaGeo.special.belowLappmark === true, 'Pajala is automatically classified below lappmarksgränsen');
+assert(pajalaGeo.special.borderRiver === undefined, 'Pajala keeps gränsälvsområdet unresolved for manual confirmation');
+
+const kirunaGeo = inferSpecialAreas({name:'Kiruna',lat:67.85,lon:20.23,county:'Norrbotten County',municipality:'Kiruna Municipality',special:{}});
+assert(kirunaGeo.special.aboveLappmark === true, 'Kiruna is automatically classified above lappmarksgränsen');
+assert(kirunaGeo.special.westOdlingsgransNorrbotten === undefined, 'Kiruna keeps odlingsgränsen unresolved for manual confirmation');
+
+const norsjoGeo = inferSpecialAreas({name:'Norsjö',lat:64.91,lon:19.48,county:'Västerbotten County',municipality:'Norsjö Municipality',special:{}});
+assert(norsjoGeo.special.belowLappmark === true, 'Norsjö is automatically classified below lappmarksgränsen');
+
+const bjurholmGeo = inferSpecialAreas({name:'Bjurholm',lat:63.93,lon:19.21,county:'Västerbotten County',municipality:'Bjurholm Municipality',special:{}});
+assert(bjurholmGeo.special.aboveLappmark === undefined && bjurholmGeo.special.belowLappmark === undefined, 'Bjurholm stays unresolved where lappmarksgränsen crosses the municipality');
 
 const stockholm = {
   name: 'Stockholm',
