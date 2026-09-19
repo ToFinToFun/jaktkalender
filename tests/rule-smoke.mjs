@@ -23,6 +23,22 @@ assert(
   'Elk gets normal time plus the restricted last hour after sunset'
 );
 
+
+const luleaFromMap = {
+  ...lulea,
+  county: 'Norrbotten County',
+  municipality: 'Luleå Municipality'
+};
+assert(
+  activeRules('alg', D('2026-09-19'), luleaFromMap).some(rule => rule.id === 'alg-north-counties'),
+  'English map county name still matches Norrbottens län'
+);
+const elkFromMap = dailySegments('alg', D('2026-09-19'), luleaFromMap);
+assert(
+  elkFromMap.length === 2 && elkFromMap[0].state === 'normal' && elkFromMap[1].state === 'restricted',
+  'Elk day bar renders for map-geocoded Luleå on 19 Sep'
+);
+
 assert(
   seasonState('vildsvin', D('2026-06-15'), lulea) === 'normal',
   'Wild-boar yearling season spans June'
