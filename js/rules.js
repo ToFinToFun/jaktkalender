@@ -208,20 +208,47 @@ export function periodLabel(rule) {
 }
 
 export function inferSpecialAreas(location) {
+  const county = normalizeCounty(location.county || '');
+  const municipality = normalizeMunicipality(location.municipality || '');
   const special = {...(location.special || {})};
-  const m = strip(location.municipality || '');
-  const c = strip(location.county || '');
-  const obviousAboveNorr = ['arjeplog','arvidsjaur','jokkmokk','gallivare','kiruna'];
-  const obviousBelowNorr = ['lulea','pitea','alvsbyn','kalix','haparanda','boden','overkalix'];
-  const obviousAboveVb = ['sorsele','storuman','vilhelmina','dorotea','asele','lycksele','mala'];
-  const obviousBelowVb = ['umea','skelleftea','robertsfors','vannas','nordmaling'];
+  const m = strip(municipality);
+  const c = strip(county);
+
+  const setLappmark = value => {
+    if (value === 'above') { special.aboveLappmark = true; special.belowLappmark = false; }
+    else if (value === 'below') { special.belowLappmark = true; special.aboveLappmark = false; }
+    else { delete special.aboveLappmark; delete special.belowLappmark; }
+  };
+
   if (c.includes('norrbotten')) {
-    if (obviousAboveNorr.some(x => m.includes(x))) { special.aboveLappmark = true; special.belowLappmark = false; }
-    else if (obviousBelowNorr.some(x => m.includes(x))) { special.belowLappmark = true; special.aboveLappmark = false; }
+    const above = ['arjeplog','arvidsjaur','jokkmokk','gallivare','kiruna'];
+    const below = ['pitea','lulea','alvsbyn','boden','kalix','haparanda','pajala','overkalix','overtornea'];
+    if (above.some(x => m.includes(x))) setLappmark('above');
+    else if (below.some(x => m.includes(x))) setLappmark('below');
+    else setLappmark(null);
+
+    const borderPossible = ['kiruna','pajala','overtornea','haparanda'].some(x => m.includes(x));
+    if (!borderPossible) special.borderRiver = false;
+
+    const cultivationBoundaryPossible = ['kiruna','gallivare','jokkmokk','arjeplog','arvidsjaur'].some(x => m.includes(x));
+    if (!cultivationBoundaryPossible) special.westOdlingsgransNorrbotten = false;
+  } else if (c.includes('vasterbotten')) {
+    const above = ['sorsele','storuman','vilhelmina','dorotea','asele','lycksele','mala'];
+    const below = ['umea','skelleftea','robertsfors','vannas','nordmaling','norsjo'];
+    if (above.some(x => m.includes(x))) setLappmark('above');
+    else if (below.some(x => m.includes(x))) setLappmark('below');
+    else setLappmark(null);
+    special.borderRiver = false;
+    special.westOdlingsgransNorrbotten = false;
+  } else {
+    delete special.aboveLappmark;
+    delete special.belowLappmark;
+    special.borderRiver = false;
+    special.westOdlingsgransNorrbotten = false;
   }
-  if (c.includes('vasterbotten')) {
-    if (obviousAboveVb.some(x => m.includes(x))) { special.aboveLappmark = true; special.belowLappmark = false; }
-    else if (obviousBelowVb.some(x => m.includes(x))) { special.belowLappmark = true; special.aboveLappmark = false; }
-  }
-  return {...location, special};
+
+  if (!(c.includes('dalarna') && m.includes('mora'))) special.northMora = false;
+  if (!c.includes('skane')) special.skaneKronhjortArea = false;
+
+  return {...location, county, municipality, special};
 }
