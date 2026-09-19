@@ -1,4 +1,5 @@
 const ZENITH = 90.833;
+const CIVIL_ZENITH = 96;
 const DEG = Math.PI / 180;
 
 function normalizeDeg(v) { return ((v % 360) + 360) % 360; }
@@ -10,7 +11,7 @@ function dayOfYear(date) {
   return Math.floor((now - start) / 86400000);
 }
 
-function calcEvent(date, lat, lon, sunrise) {
+function calcEvent(date, lat, lon, sunrise, zenith = ZENITH) {
   const n = dayOfYear(date);
   const lngHour = lon / 15;
   const t = n + ((sunrise ? 6 : 18) - lngHour) / 24;
@@ -24,7 +25,7 @@ function calcEvent(date, lat, lon, sunrise) {
   ra = (ra + lQuadrant - raQuadrant) / 15;
   const sinDec = 0.39782 * Math.sin(l * DEG);
   const cosDec = Math.cos(Math.asin(sinDec));
-  const cosH = (Math.cos(ZENITH * DEG) - sinDec * Math.sin(lat * DEG)) / (cosDec * Math.cos(lat * DEG));
+  const cosH = (Math.cos(zenith * DEG) - sinDec * Math.sin(lat * DEG)) / (cosDec * Math.cos(lat * DEG));
   if (cosH > 1) return { date: null, polar: 'night' };
   if (cosH < -1) return { date: null, polar: 'day' };
   let h = sunrise ? 360 - (Math.acos(cosH) / DEG) : (Math.acos(cosH) / DEG);
@@ -36,9 +37,19 @@ function calcEvent(date, lat, lon, sunrise) {
 }
 
 export function getSunTimes(date, lat, lon) {
-  const rise = calcEvent(date, lat, lon, true);
-  const set = calcEvent(date, lat, lon, false);
+  const rise = calcEvent(date, lat, lon, true, ZENITH);
+  const set = calcEvent(date, lat, lon, false, ZENITH);
   return { sunrise: rise.date, sunset: set.date, polar: rise.polar || set.polar || null };
+}
+
+export function getCivilTwilightTimes(date, lat, lon) {
+  const dawn = calcEvent(date, lat, lon, true, CIVIL_ZENITH);
+  const dusk = calcEvent(date, lat, lon, false, CIVIL_ZENITH);
+  return { dawn: dawn.date, dusk: dusk.date, polar: dawn.polar || dusk.polar || null };
+}
+
+export function roundMinutes(minutes, step = 15) {
+  return Math.round(minutes / step) * step;
 }
 
 export function addMinutes(date, minutes) {
