@@ -210,8 +210,9 @@ document.querySelectorAll('[data-close-dialog]').forEach(b=>b.addEventListener('
 const scroller=$('timelineScroller');
 scroller.addEventListener('scroll',handleTimelineScroll,{passive:true});
 scroller.addEventListener('wheel',e=>{
-  const horizontal=Math.abs(e.deltaX)>Math.abs(e.deltaY);
-  if(horizontal||e.shiftKey){e.preventDefault();scroller.scrollLeft+=horizontal?e.deltaX:e.deltaY}
+  e.preventDefault();
+  const delta=Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:e.deltaY;
+  scroller.scrollLeft+=delta;
 },{passive:false});
 let dragStartX=0,dragStartScroll=0,dragMoved=false;
 scroller.addEventListener('pointerdown',e=>{
