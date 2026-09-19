@@ -60,8 +60,20 @@
       <span><i class="legend-swatch normal"></i> Säsongsperiod</span>
       <span><i class="legend-swatch restricted"></i> Särskild delperiod</span>
       <span><i class="legend-swatch window"></i> Fast licensjaktsfönster</span>
-      <span><i class="legend-swatch activity"></i> Ofta gynnsam tid (vecka/dag)</span>
+      <span><i class="legend-swatch activity"></i> Gyllene tid (vecka/dag)</span>
+      <span><i class="legend-swatch weather"></i> Jaktväder från SMHI (vecka/dag)</span>
       <span class="legend-note">Kalendern visar säsong – inte personliga tillstånd, kvoter eller avlysningar.</span>
+    </section>
+
+    <section id="weatherPlanner" class="weather-planner" aria-label="SMHI väderprognos">
+      <div class="weather-planner-head">
+        <div>
+          <p class="eyebrow">Planera jakt</p>
+          <strong>SMHI-prognos för vald plats</strong>
+        </div>
+        <small id="weatherStatus">Hämtar prognos från SMHI…</small>
+      </div>
+      <div id="weatherDays" class="weather-days"></div>
     </section>
 
     <section class="calendar-panel" aria-labelledby="periodTitle">
