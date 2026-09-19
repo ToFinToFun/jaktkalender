@@ -4,7 +4,7 @@ En visuell svensk jaktkalender för **säsonger, plats och sol**.
 
 Jaktkalendern visar fasta svenska jaktsäsonger som en tidslinje. Användaren väljer plats och arter och kan växla mellan jaktår, månad, vecka och dag. På vecka/dag räknas solstyrda tidsfönster ut för den valda platsen, så nattluckor och fasta specialperioder syns direkt.
 
-> Projektet är en säsongskalender – inte en kontroll av om en viss person har rätt att jaga vid ett visst tillfälle. Kvoter, avlysningar, personliga tillstånd, jakträtt och tillfälliga beslut följs inte.
+> Projektet är en säsongskalender – inte en kontroll av om en viss person har rätt att jaga vid ett visst tillfälle. Kvoter, avlysningar, personliga tillstånd, jakträtt och tillfälliga beslut följs inte. Skyddsjakt enligt bilaga 4 ligger också utanför kalenderns scope.
 
 ## Funktioner
 
