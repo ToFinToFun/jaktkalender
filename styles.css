@@ -261,3 +261,15 @@ h1 { margin: 0; font-size: clamp(34px, 5vw, 60px); line-height: .98; letter-spac
   background: #d5a84c;
   border: 1px solid rgba(100,76,25,.35);
 }
+
+.location-kicker.warn { color: #e0b86b; }
+.geo-warning { display: grid; gap: 4px; margin: 2px 0 10px; padding: 10px 11px; border-left: 3px solid var(--amber); background: rgba(218,200,166,.18); }
+.geo-warning strong { font-size: 12px; color: var(--forest-900); }
+.geo-warning span { font-size: 11px; line-height: 1.35; color: var(--muted); }
+.check-row { justify-content: space-between; align-items: center; }
+.check-row > span { flex: 1 1 auto; }
+.check-row select { max-width: min(360px, 58%); min-height: 36px; border: 1px solid var(--line); border-radius: 7px; background: var(--white); padding: 0 8px; color: var(--ink); }
+@media (max-width: 560px) {
+  .check-row { align-items: stretch; flex-direction: column; }
+  .check-row select { max-width: none; width: 100%; }
+}
