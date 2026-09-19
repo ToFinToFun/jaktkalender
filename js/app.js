@@ -318,6 +318,38 @@ async function loadWeather(){
     renderWeatherPlanner();renderTimeline();
   }
 }
+function weatherPeriodsForDay(id,date){
+  const pts=forecastPointsForDate(date);
+  if(!pts.length)return null;
+  const scored=pts.map(p=>({p,score:huntingWeatherScore(id,p.data||{})}));
+  const max=Math.max(...scored.map(x=>x.score));
+  const threshold=max>=78?78:55;
+  const chosen=scored.filter(x=>x.score>=threshold);
+  const groups=[];
+  for(const x of chosen){
+    const start=localMinute(x.p.time),end=Math.min(1440,start+60);
+    const prev=groups.at(-1);
+    if(prev&&start<=prev.end+15){prev.end=Math.max(prev.end,end);prev.score=Math.max(prev.score,x.score)}
+    else groups.push({start,end,score:x.score});
+  }
+  return {max,groups,summary:summarizeForecastDay(pts)};
+}
+function weatherDetailHtml(id,date){
+  const w=weatherPeriodsForDay(id,date);
+  if(!w?.summary)return '';
+  const s=w.summary;
+  const periods=w.groups.length?w.groups.map(x=>`${clock(x.start)}–${clock(x.end)}`).join(' · '):'Ingen tydlig topp i prognosen';
+  return `<section class="weather-detail">
+    <div class="advice-heading"><span>SMHI-prognos</span><small>Rådgivande jaktväder</small></div>
+    <div class="weather-detail-grid">
+      <div><span>Temperatur</span><strong>${formatNum(s.tempMin)}–${formatNum(s.tempMax)} °C</strong></div>
+      <div><span>Vind</span><strong>${formatNum(s.windAvg,1)}–${formatNum(s.windMax,1)} m/s</strong></div>
+      <div><span>Nederbörd</span><strong>≈ ${formatNum(s.precip,1)} mm</strong></div>
+      <div><span>Sämsta sikt</span><strong>${formatNum(s.visibilityMin,1)} km</strong></div>
+    </div>
+    <p><strong>${weatherGradeLabel(w.max)} väderläge:</strong> ${esc(periods)}</p>
+  </section>`;
+}
 function segmentLabels(seg,nav,current){
   if(state.view==='day'||state.view==='week'){
     const startDay=Math.floor(seg.startAbs/1440),endPoint=Math.max(0,seg.endAbs-1),endDay=Math.floor(endPoint/1440);
@@ -394,7 +426,7 @@ function handleTimelineScroll(){
 }
 function detail(id,date){
   const sp=SPECIES.find(x=>x.id===id);if(!sp)return;
-  const rules=activeRules(id,date,state.location),sun=sunSummary(date,state.location),segs=dailySegments(id,date,state.location),advice=adviceFor(id);
+  const rules=activeRules(id,date,state.location),sun=sunSummary(date,state.location),segs=dailySegments(id,date,state.location),advice=adviceFor(id),weatherHtml=weatherDetailHtml(id,date);
   $('detailGroup').textContent=GROUPS.find(g=>g.id===sp.group)?.name||'Art';$('detailTitle').textContent=sp.name;
   const times=segs.length?segs.map(x=>`${clock(x.start)}–${clock(x.end)}${x.state==='restricted'?' särskild delperiod':x.state==='window'?' licensjaktsfönster':x.state==='uncertain'?' solförhållande utan normalt upp-/nedgångspar':''}`).join(' · '):'Ingen säsongstid denna dag';
   const adviceHtml=advice?`
@@ -407,7 +439,7 @@ function detail(id,date){
       ${advice.sources?.length?`<div class="advice-sources"><span>Källor:</span> ${advice.sources.map(([label,url])=>`<a href="${url}" target="_blank" rel="noreferrer">${esc(label)}</a>`).join(' · ')}</div>`:''}
     </section>`:''; 
   const cards=rules.length?rules.map(r=>{const src=sourceFor(r);return `<article class="rule-card"><h3>${esc(r.label||sp.name)}</h3><p><strong>${esc(periodLabel(r))}</strong>${r.kind==='window'?' · fast ramperiod':''}</p><p>${esc(describeDailyRule(r,date,state.location))}</p>${r.restriction?`<span class="rule-pill">${esc(r.restriction)}</span>`:''}${r.note?`<p>${esc(r.note)}</p>`:''}<p><a href="${src.url}" target="_blank" rel="noreferrer">${esc(src.label)}</a></p></article>`}).join(''):nextPeriod(id,date);
-  $('detailContent').innerHTML=`<div class="detail-status"><strong>${rules.length?'Säsongsperiod pågår':'Utanför säsongsperiod'}</strong><span>${esc(cap(df.format(date)))} · ${esc(state.location.name)}</span></div><div class="sun-detail"><div><span>Soluppgång</span><strong>${sun.polar==='night'?'Ingen':sun.polar==='day'?'Midnattssol':sun.sunrise}</strong></div><div><span>Solnedgång</span><strong>${sun.polar==='night'?'Polarnatt':sun.polar==='day'?'Ingen':sun.sunset}</strong></div></div><p class="detail-daytime"><strong>Säsongstid denna dag:</strong> ${esc(times)}</p>${adviceHtml}${cards}`;
+  $('detailContent').innerHTML=`<div class="detail-status"><strong>${rules.length?'Säsongsperiod pågår':'Utanför säsongsperiod'}</strong><span>${esc(cap(df.format(date)))} · ${esc(state.location.name)}</span></div><div class="sun-detail"><div><span>Soluppgång</span><strong>${sun.polar==='night'?'Ingen':sun.polar==='day'?'Midnattssol':sun.sunrise}</strong></div><div><span>Solnedgång</span><strong>${sun.polar==='night'?'Polarnatt':sun.polar==='day'?'Ingen':sun.sunset}</strong></div></div><p class="detail-daytime"><strong>Säsongstid denna dag:</strong> ${esc(times)}</p>${weatherHtml}${adviceHtml}${cards}`;
   $('detailDialog').showModal();
 }
 function nextPeriod(id,date){for(let i=1;i<=370;i++){const d=addDays(date,i),r=activeRules(id,d,state.location);if(r.length)return `<article class="rule-card"><h3>Nästa säsongsperiod</h3><p>${esc(cap(df.format(d)))}</p><p>${esc(r.map(x=>x.label||periodLabel(x)).join(' · '))}</p></article>`}return'<article class="rule-card"><p>Ingen period hittades för vald plats inom kommande året.</p></article>'}
