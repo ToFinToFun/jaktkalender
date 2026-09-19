@@ -38,8 +38,38 @@ function addressCounty(a={}){
   return '';
 }
 function addressMunicipality(a={}){
-  const raw=a.municipality||a.city_district||a.county||a.city||a.town||a.village||'';
+  const raw=a.municipality||a.city_district||a.city||a.town||a.village||'';
   return raw?normalizeMunicipality(raw):'';
+}
+function normGeoText(s=''){
+  return String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+}
+function geographyWarnings(loc, selected=state?.selected){
+  const warnings=[], c=normGeoText(loc.county), m=normGeoText(loc.municipality), s=loc.special||{};
+  if ((c.includes('norrbotten')||c.includes('vasterbotten')) && s.aboveLappmark!==true && s.belowLappmark!==true)
+    warnings.push('Lappmarksgränsen behöver anges för den här platsen.');
+  if (c.includes('norrbotten') && ['kiruna','pajala','overtornea','haparanda'].some(x=>m.includes(x)) && s.borderRiver===undefined)
+    warnings.push('Bekräfta om platsen ligger inom gränsälvsområdet.');
+  if (c.includes('norrbotten') && ['kiruna','gallivare','jokkmokk','arjeplog','arvidsjaur'].some(x=>m.includes(x)) && s.westOdlingsgransNorrbotten===undefined)
+    warnings.push('Bekräfta sida om odlingsgränsen.');
+  if (c.includes('dalarna') && m.includes('mora') && s.northMora===undefined)
+    warnings.push('Bekräfta om platsen ligger i norra delen av Mora.');
+  if (selected?.has?.('kronhjort')) {
+    if (c.includes('skane') && s.skaneKronhjortArea===undefined)
+      warnings.push('Bekräfta om platsen ligger i ett skånskt kronhjortsområde.');
+    if (!c.includes('skane') && s.kronhjortManagement===undefined)
+      warnings.push('Bekräfta om marken ingår i kronhjortsskötselområde.');
+  }
+  return warnings;
+}
+function triState(value){
+  return value===true?'yes':value===false?'no':'unknown';
+}
+function setTriState(obj,key,value){
+  const next={...(obj||{})};
+  if(value==='unknown') delete next[key];
+  else next[key]=value==='yes';
+  return next;
 }
 function repairSavedLocation(loc){
   const x={...loc};
@@ -102,6 +132,9 @@ function speciesNowStatus(id){
 }
 function renderTop(){
   $('locationButtonLabel').textContent=state.location.name||'Vald plats';
+  const geoWarnings=geographyWarnings(state.location);
+  const kicker=$('locationKicker');
+  if(kicker){kicker.textContent=geoWarnings.length?'Plats · kontrollera område':'Plats';kicker.classList.toggle('warn',geoWarnings.length>0)}
   const sun=sunSummary(stockholmToday(),state.location);
   $('sunriseNow').textContent=sun.polar==='night'?'ingen':sun.polar==='day'?'midnattssol':sun.sunrise;
   $('sunsetNow').textContent=sun.polar==='night'?'polarnatt':sun.polar==='day'?'ingen':sun.sunset;
@@ -295,14 +328,53 @@ function renderSpecies(active=null){
 function locationDialog(){locationDraft=structuredClone(state.location);updateLocation();$('locationDialog').showModal();setTimeout(mapInit,80)}
 function updateLocation(){$('chosenPlaceName').textContent=locationDraft.name||'Vald punkt';$('chosenPlaceMeta').textContent=[locationDraft.county,locationDraft.municipality].filter(Boolean).join(' · ')||'Administrativt område inte hämtat';$('chosenCoords').textContent=`${(+locationDraft.lat).toFixed(5)}, ${(+locationDraft.lon).toFixed(5)}`;specialControls()}
 function specialControls(){
-  const c=(locationDraft.county||'').toLowerCase(),m=(locationDraft.municipality||'').toLowerCase(),s=locationDraft.special||{};let h='';
-  if(c.includes('norrbotten')||c.includes('västerbotten')){const v=s.aboveLappmark?'above':s.belowLappmark?'below':'unknown';h+=`<label class="check-row"><span>Lappmarksgränsen</span><select id="lappmarkSelect"><option value="unknown" ${v==='unknown'?'selected':''}>Inte angivet</option><option value="below" ${v==='below'?'selected':''}>Nedanför lappmarksgränsen</option><option value="above" ${v==='above'?'selected':''}>Ovanför lappmarksgränsen</option></select></label>`}
-  if(c.includes('norrbotten'))h+=`<label class="check-row"><input id="borderRiverCheck" type="checkbox" ${s.borderRiver?'checked':''}><span>Gränsälvsområdet (200 m från Torne/Muonio/Könkämä älv)</span></label><label class="check-row"><input id="westCultivationCheck" type="checkbox" ${s.westOdlingsgransNorrbotten?'checked':''}><span>Väster om odlingsgränsen</span></label>`;
-  if(c.includes('dalarna')&&m.includes('mora'))h+=`<label class="check-row"><input id="northMoraCheck" type="checkbox" ${s.northMora?'checked':''}><span>Norra delen av Mora enligt bilaga 2</span></label>`;
-  h+=c.includes('skåne')?`<label class="check-row"><input id="skaneKronCheck" type="checkbox" ${s.skaneKronhjortArea?'checked':''}><span>Inom kronhjortsområde i Skåne</span></label>`:`<label class="check-row"><input id="kronManagementCheck" type="checkbox" ${s.kronhjortManagement?'checked':''}><span>Inom kronhjortsskötselområde</span></label>`;
-  $('specialAreaControls').innerHTML=h;
-  $('lappmarkSelect')?.addEventListener('change',e=>locationDraft.special={...(locationDraft.special||{}),aboveLappmark:e.target.value==='above',belowLappmark:e.target.value==='below'});
-  for(const [id,key] of [['borderRiverCheck','borderRiver'],['westCultivationCheck','westOdlingsgransNorrbotten'],['northMoraCheck','northMora'],['skaneKronCheck','skaneKronhjortArea'],['kronManagementCheck','kronhjortManagement']])$(id)?.addEventListener('change',e=>locationDraft.special={...(locationDraft.special||{}),[key]:e.target.checked});
+  const c=normGeoText(locationDraft.county),m=normGeoText(locationDraft.municipality),s=locationDraft.special||{};
+  const warnings=geographyWarnings(locationDraft,selectedDraft);
+  let h=warnings.length?`<div class="geo-warning"><strong>Geografi behöver bekräftas</strong>${warnings.map(x=>`<span>${esc(x)}</span>`).join('')}</div>`:'';
+
+  if(c.includes('norrbotten')||c.includes('vasterbotten')){
+    const v=s.aboveLappmark?'above':s.belowLappmark?'below':'unknown';
+    h+=`<label class="check-row"><span>Lappmarksgränsen</span><select id="lappmarkSelect"><option value="unknown" ${v==='unknown'?'selected':''}>Inte angivet</option><option value="below" ${v==='below'?'selected':''}>Nedanför lappmarksgränsen</option><option value="above" ${v==='above'?'selected':''}>Ovanför lappmarksgränsen</option></select></label>`;
+  }
+
+  if(c.includes('norrbotten')&&['kiruna','pajala','overtornea','haparanda'].some(x=>m.includes(x))){
+    const v=triState(s.borderRiver);
+    h+=`<label class="check-row"><span>Gränsälvsområdet</span><select id="borderRiverSelect"><option value="unknown" ${v==='unknown'?'selected':''}>Inte angivet</option><option value="no" ${v==='no'?'selected':''}>Nej</option><option value="yes" ${v==='yes'?'selected':''}>Ja, inom 200 m från Torne/Muonio/Könkämä älv</option></select></label>`;
+  }
+
+  if(c.includes('norrbotten')&&['kiruna','gallivare','jokkmokk','arjeplog','arvidsjaur'].some(x=>m.includes(x))){
+    const v=triState(s.westOdlingsgransNorrbotten);
+    h+=`<label class="check-row"><span>Odlingsgränsen</span><select id="westCultivationSelect"><option value="unknown" ${v==='unknown'?'selected':''}>Inte angivet</option><option value="no" ${v==='no'?'selected':''}>Öster om / inte väster om odlingsgränsen</option><option value="yes" ${v==='yes'?'selected':''}>Väster om odlingsgränsen</option></select></label>`;
+  }
+
+  if(c.includes('dalarna')&&m.includes('mora')){
+    const v=triState(s.northMora);
+    h+=`<label class="check-row"><span>Mora</span><select id="northMoraSelect"><option value="unknown" ${v==='unknown'?'selected':''}>Inte angivet</option><option value="no" ${v==='no'?'selected':''}>Inte norra delen enligt bilaga 2</option><option value="yes" ${v==='yes'?'selected':''}>Norra delen enligt bilaga 2</option></select></label>`;
+  }
+
+  if(c.includes('skane')){
+    const v=triState(s.skaneKronhjortArea);
+    h+=`<label class="check-row"><span>Kronhjortsområde i Skåne</span><select id="skaneKronSelect"><option value="unknown" ${v==='unknown'?'selected':''}>Inte angivet</option><option value="no" ${v==='no'?'selected':''}>Utanför</option><option value="yes" ${v==='yes'?'selected':''}>Inom kronhjortsområde</option></select></label>`;
+  }else{
+    const v=triState(s.kronhjortManagement);
+    h+=`<label class="check-row"><span>Kronhjortsskötselområde</span><select id="kronManagementSelect"><option value="unknown" ${v==='unknown'?'selected':''}>Inte angivet</option><option value="no" ${v==='no'?'selected':''}>Utanför</option><option value="yes" ${v==='yes'?'selected':''}>Inom skötselområde</option></select></label>`;
+  }
+
+  $('specialAreaControls').innerHTML=h||'<p class="field-help">Inga särskilda geografiska val behövs för den här platsen.</p>';
+
+  $('lappmarkSelect')?.addEventListener('change',e=>{
+    const next={...(locationDraft.special||{})};
+    if(e.target.value==='unknown'){delete next.aboveLappmark;delete next.belowLappmark}
+    else{next.aboveLappmark=e.target.value==='above';next.belowLappmark=e.target.value==='below'}
+    locationDraft.special=next;specialControls();
+  });
+  for(const [id,key] of [
+    ['borderRiverSelect','borderRiver'],
+    ['westCultivationSelect','westOdlingsgransNorrbotten'],
+    ['northMoraSelect','northMora'],
+    ['skaneKronSelect','skaneKronhjortArea'],
+    ['kronManagementSelect','kronhjortManagement']
+  ]) $(id)?.addEventListener('change',e=>{locationDraft.special=setTriState(locationDraft.special,key,e.target.value);specialControls()});
 }
 function mapInit(){
   if(!window.maplibregl){$('map').textContent='Kartan kunde inte laddas.';return}
@@ -313,7 +385,9 @@ async function nom(url){const wait=Math.max(0,1100-(Date.now()-lastNominatimAt))
 const placeName=x=>{const a=x.address||{};return a.city||a.town||a.village||a.hamlet||a.municipality||x.name||String(x.display_name||'Vald plats').split(',')[0]};
 async function search(){const q=$('placeSearch').value.trim();if(q.length<2)return;$('searchStatus').textContent='Söker…';$('searchResults').innerHTML='';try{const data=await nom(`https://nominatim.openstreetmap.org/search?format=jsonv2&countrycodes=se&limit=8&addressdetails=1&accept-language=sv&q=${encodeURIComponent(q)}`);$('searchStatus').textContent=data.length?`${data.length} träffar`:'Ingen träff';$('searchResults').innerHTML=data.map((x,i)=>`<button type="button" class="search-result" data-result="${i}"><strong>${esc(placeName(x))}</strong><small>${esc([x.address?.state,x.address?.municipality||x.address?.county].filter(Boolean).join(' · '))}</small></button>`).join('');$('searchResults').querySelectorAll('[data-result]').forEach(b=>b.addEventListener('click',()=>applyPlace(data[+b.dataset.result])))}catch{$('searchStatus').textContent='Sökningen kunde inte nå karttjänsten.'}}
 function applyPlace(x){const a=x.address||{};locationDraft=repairSavedLocation({name:placeName(x),lat:+x.lat,lon:+x.lon,county:addressCounty(a),municipality:addressMunicipality(a),special:{}});updateLocation();if(map){map.flyTo({center:[locationDraft.lon,locationDraft.lat],zoom:10});marker.setLngLat([locationDraft.lon,locationDraft.lat])}}
-function coords(lat,lon,reverse=false){locationDraft={...locationDraft,lat,lon,name:'Vald punkt'};updateLocation();if(reverse){clearTimeout(reverseTimer);reverseTimer=setTimeout(async()=>{try{const x=await nom(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=12&addressdetails=1&accept-language=sv`),a=x.address||{};locationDraft=repairSavedLocation({...locationDraft,name:placeName(x),county:addressCounty(a),municipality:addressMunicipality(a),special:locationDraft.special||{}});updateLocation()}catch{}},500)}}
+function coords(lat,lon,reverse=false){locationDraft={...locationDraft,lat,lon,name:'Vald punkt'};updateLocation();if(reverse){clearTimeout(reverseTimer);reverseTimer=setTimeout(async()=>{try{const x=await nom(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=12&addressdetails=1&accept-language=sv`),a=x.address||{};const nextCounty=addressCounty(a),nextMunicipality=addressMunicipality(a);
+      const areaChanged=normalizeCounty(locationDraft.county||'')!==normalizeCounty(nextCounty||'')||normalizeMunicipality(locationDraft.municipality||'')!==normalizeMunicipality(nextMunicipality||'');
+      locationDraft=repairSavedLocation({...locationDraft,name:placeName(x),county:nextCounty,municipality:nextMunicipality,special:areaChanged?{}:(locationDraft.special||{})});updateLocation()}catch{}},500)}}
 function geolocate(){if(!navigator.geolocation){$('searchStatus').textContent='Webbläsaren har inte platsstöd.';return}$('searchStatus').textContent='Hämtar din position…';navigator.geolocation.getCurrentPosition(p=>{const{latitude:lat,longitude:lon}=p.coords;$('searchStatus').textContent='';marker?.setLngLat([lon,lat]);map?.flyTo({center:[lon,lat],zoom:11});coords(lat,lon,true)},()=>$('searchStatus').textContent='Kunde inte läsa positionen.',{timeout:10000})}
 
 document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{state.view=b.dataset.view;renderAll()}));
