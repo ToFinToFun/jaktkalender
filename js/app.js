@@ -2,6 +2,7 @@ import { DEFAULT_LOCATION, DEFAULT_SELECTED } from './data.js';
 import { SPECIES, GROUPS, activeRules, matchingRules, seasonState, dailySegments, sunSummary, describeDailyRule, speciesRelevant, sourceFor, periodLabel, inferSpecialAreas, normalizeCounty, normalizeMunicipality } from './rules.js';
 import { adviceFor, activityWindowFor } from './advice.js';
 import { getSunTimes, getCivilTwilightTimes, stockholmMinutes, roundMinutes } from './sun.js';
+import { fetchSmhiForecast, localDateKey, localMinute, huntingWeatherScore, weatherGrade, weatherGradeLabel, summarizeForecastDay } from './weather.js';
 
 const $=id=>document.getElementById(id);
 const df=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',weekday:'long',day:'numeric',month:'long',year:'numeric'});
@@ -86,6 +87,7 @@ const state={
   selected:new Set(load('jaktkalender.species',DEFAULT_SELECTED)),view:'year',anchor:stockholmToday(),displayMode:'selected'
 };
 let locationDraft=structuredClone(state.location),selectedDraft=new Set(state.selected),map=null,marker=null,reverseTimer=null,lastNominatimAt=0;
+let weatherState={status:'idle',forecast:null,error:null},weatherAbort=null;
 
 function range(){
   const a=state.anchor;
