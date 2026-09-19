@@ -216,6 +216,8 @@ scroller.addEventListener('wheel',e=>{
 let dragStartX=0,dragStartScroll=0,dragMoved=false;
 scroller.addEventListener('pointerdown',e=>{
   if(e.pointerType==='mouse'&&e.button!==0)return;
+  if(e.target.closest('button, a, input, select, label, summary'))return;
+  if(!e.target.closest('.track, .timeline-scale'))return;
   dragStartX=e.clientX;dragStartScroll=scroller.scrollLeft;dragMoved=false;
   scroller.setPointerCapture?.(e.pointerId);scroller.classList.add('grabbing');
 });
