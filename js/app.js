@@ -1,5 +1,5 @@
 import { DEFAULT_LOCATION, DEFAULT_SELECTED } from './data.js';
-import { SPECIES, GROUPS, activeRules, matchingRules, seasonState, dailySegments, sunSummary, describeDailyRule, speciesRelevant, sourceFor, periodLabel, inferSpecialAreas } from './rules.js';
+import { SPECIES, GROUPS, activeRules, matchingRules, seasonState, dailySegments, sunSummary, describeDailyRule, speciesRelevant, sourceFor, periodLabel, inferSpecialAreas } from './rules.js';\nimport { adviceFor } from './advice.js';
 
 const $=id=>document.getElementById(id);
 const df=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',weekday:'long',day:'numeric',month:'long',year:'numeric'});
@@ -182,11 +182,20 @@ function handleTimelineScroll(){
   },220);
 }
 function detail(id,date){
-  const sp=SPECIES.find(x=>x.id===id);if(!sp)return;const rules=activeRules(id,date,state.location),sun=sunSummary(date,state.location),segs=dailySegments(id,date,state.location);
+  const sp=SPECIES.find(x=>x.id===id);if(!sp)return;
+  const rules=activeRules(id,date,state.location),sun=sunSummary(date,state.location),segs=dailySegments(id,date,state.location),advice=adviceFor(id);
   $('detailGroup').textContent=GROUPS.find(g=>g.id===sp.group)?.name||'Art';$('detailTitle').textContent=sp.name;
   const times=segs.length?segs.map(x=>`${clock(x.start)}–${clock(x.end)}${x.state==='restricted'?' särskild delperiod':x.state==='window'?' licensjaktsfönster':x.state==='uncertain'?' solförhållande utan normalt upp-/nedgångspar':''}`).join(' · '):'Ingen säsongstid denna dag';
+  const adviceHtml=advice?`
+    <section class="advice-card">
+      <div class="advice-heading"><span>Praktiskt jaktläge</span><small>Råd – inte jaktregel</small></div>
+      ${advice.best?`<div class="advice-row"><strong>Ofta bäst</strong><p>${esc(advice.best)}</p></div>`:''}
+      ${advice.conditions?`<div class="advice-row"><strong>Gynnsamma förhållanden</strong><p>${esc(advice.conditions)}</p></div>`:''}
+      ${advice.method?`<div class="advice-row"><strong>Jaktform</strong><p>${esc(advice.method)}</p></div>`:''}
+      ${advice.sources?.length?`<div class="advice-sources"><span>Källor:</span> ${advice.sources.map(([label,url])=>`<a href="${url}" target="_blank" rel="noreferrer">${esc(label)}</a>`).join(' · ')}</div>`:''}
+    </section>`:''; 
   const cards=rules.length?rules.map(r=>{const src=sourceFor(r);return `<article class="rule-card"><h3>${esc(r.label||sp.name)}</h3><p><strong>${esc(periodLabel(r))}</strong>${r.kind==='window'?' · fast ramperiod':''}</p><p>${esc(describeDailyRule(r,date,state.location))}</p>${r.restriction?`<span class="rule-pill">${esc(r.restriction)}</span>`:''}${r.note?`<p>${esc(r.note)}</p>`:''}<p><a href="${src.url}" target="_blank" rel="noreferrer">${esc(src.label)}</a></p></article>`}).join(''):nextPeriod(id,date);
-  $('detailContent').innerHTML=`<div class="detail-status"><strong>${rules.length?'Säsongsperiod pågår':'Utanför säsongsperiod'}</strong><span>${esc(cap(df.format(date)))} · ${esc(state.location.name)}</span></div><div class="sun-detail"><div><span>Soluppgång</span><strong>${sun.polar==='night'?'Ingen':sun.polar==='day'?'Midnattssol':sun.sunrise}</strong></div><div><span>Solnedgång</span><strong>${sun.polar==='night'?'Polarnatt':sun.polar==='day'?'Ingen':sun.sunset}</strong></div></div><p class="detail-daytime"><strong>Säsongstid denna dag:</strong> ${esc(times)}</p>${cards}`;
+  $('detailContent').innerHTML=`<div class="detail-status"><strong>${rules.length?'Säsongsperiod pågår':'Utanför säsongsperiod'}</strong><span>${esc(cap(df.format(date)))} · ${esc(state.location.name)}</span></div><div class="sun-detail"><div><span>Soluppgång</span><strong>${sun.polar==='night'?'Ingen':sun.polar==='day'?'Midnattssol':sun.sunrise}</strong></div><div><span>Solnedgång</span><strong>${sun.polar==='night'?'Polarnatt':sun.polar==='day'?'Ingen':sun.sunset}</strong></div></div><p class="detail-daytime"><strong>Säsongstid denna dag:</strong> ${esc(times)}</p>${adviceHtml}${cards}`;
   $('detailDialog').showModal();
 }
 function nextPeriod(id,date){for(let i=1;i<=370;i++){const d=addDays(date,i),r=activeRules(id,d,state.location);if(r.length)return `<article class="rule-card"><h3>Nästa säsongsperiod</h3><p>${esc(cap(df.format(d)))}</p><p>${esc(r.map(x=>x.label||periodLabel(x)).join(' · '))}</p></article>`}return'<article class="rule-card"><p>Ingen period hittades för vald plats inom kommande året.</p></article>'}
