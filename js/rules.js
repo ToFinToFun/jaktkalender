@@ -30,13 +30,15 @@ export function normalizeMunicipality(value='') {
 
 function matchBase(region, location) {
   if (!region || region.type === 'all') return true;
-  const county = location.county || '';
-  const municipality = location.municipality || '';
+  const county = normalizeCounty(location.county || '');
+  const municipality = normalizeMunicipality(location.municipality || '');
+  const countyMatches = name => sameName(county, normalizeCounty(name));
+  const municipalityMatches = name => sameName(municipality, normalizeMunicipality(name));
   switch (region.type) {
-    case 'counties': return region.names.some(n => sameName(county, n));
-    case 'exceptCounties': return !region.names.some(n => sameName(county, n));
-    case 'countyMunicipalities': return sameName(county, region.county) && region.municipalities.some(n => sameName(municipality, n));
-    case 'countyExceptMunicipalities': return sameName(county, region.county) && !region.municipalities.some(n => sameName(municipality, n));
+    case 'counties': return region.names.some(countyMatches);
+    case 'exceptCounties': return !region.names.some(countyMatches);
+    case 'countyMunicipalities': return countyMatches(region.county) && region.municipalities.some(municipalityMatches);
+    case 'countyExceptMunicipalities': return countyMatches(region.county) && !region.municipalities.some(municipalityMatches);
     case 'special': return matchBase(region.base, location) && Boolean(location.special?.[region.key]);
     case 'notSpecial': return matchBase(region.base, location) && !Boolean(location.special?.[region.key]);
     default: return false;
