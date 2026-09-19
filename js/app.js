@@ -45,6 +45,9 @@ function currentClockMinutes(){
   const p=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date());
   return +p.find(x=>x.type==='hour').value*60 + +p.find(x=>x.type==='minute').value;
 }
+function currentClockLabel(){
+  return new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date());
+}
 function durationText(minutes){
   minutes=Math.max(0,Math.round(minutes));
   if(minutes<60)return `${minutes} min`;
@@ -118,10 +121,19 @@ function renderSegment(seg,nav,current){
   return `<span class="segment ${seg.state}" style="left:${seg.left}%;width:${seg.width}%">${labels.start?`<b class="edge-label start">${esc(labels.start)}</b>`:''}${labels.end?`<b class="edge-label end">${esc(labels.end)}</b>`:''}</span>`;
 }
 function subtitle(id){const x=matchingRules(id,state.anchor,state.location);const base=!x.length?'ingen period för området':x.some(r=>r.kind==='window')?'licensjaktsfönster':x.some(r=>r.daily!=='allDay')?'solstyrd dygnstid':'fast säsongsperiod';const countdown=speciesNowStatus(id);return countdown?`${base} · ${countdown}`:base}
+function nowPosition(r){
+  const today=stockholmToday();
+  if(today<r.start||today>r.end)return null;
+  const days=daysBetween(r.start,r.end)+1;
+  return (daysBetween(r.start,today)+currentClockMinutes()/1440)/days*100;
+}
 function nowLine(r){
-  const today=stockholmToday();if(today<r.start||today>r.end)return'';const days=daysBetween(r.start,r.end)+1;
-  const mins=currentClockMinutes();
-  return `<i class="now-line" style="left:${(daysBetween(r.start,today)+mins/1440)/days*100}%" title="Nu"></i>`;
+  const left=nowPosition(r);
+  return left===null?'':`<i class="now-line" style="left:${left}%" title="Nu ${currentClockLabel()}"></i>`;
+}
+function nowScaleMarker(r){
+  const left=nowPosition(r);
+  return left===null?'':`<i class="now-scale-marker" style="left:${left}%"><span>NU ${currentClockLabel()}</span></i>`;
 }
 let suppressScrollNavigation=false,scrollTimer=null;
 function alignScroller(nav,current){
@@ -136,7 +148,7 @@ function alignScroller(nav,current){
 function renderTimeline(){
   const current=range(),nav=navigationRange(current);$('periodTitle').textContent=current.label;$('periodContext').textContent=current.context;const t=$('timeline');t.className=`timeline ${state.view}`;t.style.width='300%';
   const sp=visible(current);$('emptyState').hidden=sp.length>0;
-  const head=`<div class="timeline-header"><div class="timeline-header-label">Art</div><div class="timeline-scale">${markers(nav).map(m=>`<i class="scale-marker" style="left:${m.left}%"><span>${esc(m.label)}</span></i>`).join('')}</div></div>`;
+  const head=`<div class="timeline-header"><div class="timeline-header-label">Art</div><div class="timeline-scale">${markers(nav).map(m=>`<i class="scale-marker" style="left:${m.left}%"><span>${esc(m.label)}</span></i>`).join('')}${nowScaleMarker(nav)}</div></div>`;
   t.innerHTML=head+sp.map(s=>{const seg=(state.view==='week'||state.view==='day'?hourlySegments:seasonSegments)(s.id,nav);return `<div class="timeline-row"><button type="button" class="species-cell" data-label="${s.id}"><strong>${esc(s.name)}</strong><small>${esc(subtitle(s.id))}</small></button><div class="track" data-track="${s.id}">${seg.map(x=>renderSegment(x,nav,current)).join('')}${nowLine(nav)}</div></div>`}).join('');
   t.querySelectorAll('[data-label]').forEach(x=>x.addEventListener('click',()=>detail(x.dataset.label,state.anchor)));
   t.querySelectorAll('[data-track]').forEach(x=>x.addEventListener('click',e=>{if($('timelineScroller').classList.contains('dragging'))return;const q=clamp((e.clientX-x.getBoundingClientRect().left)/x.getBoundingClientRect().width,0,.99999);detail(x.dataset.track,addDays(nav.start,Math.floor(q*(daysBetween(nav.start,nav.end)+1))))}));
@@ -234,3 +246,8 @@ const endDrag=e=>{
 };
 scroller.addEventListener('pointerup',endDrag);scroller.addEventListener('pointercancel',endDrag);
 renderAll();
+setInterval(()=>{
+  renderTop();
+  renderTimeline();
+},60000);
+
