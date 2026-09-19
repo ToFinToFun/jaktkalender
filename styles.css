@@ -83,7 +83,7 @@ h1 { margin: 0; font-size: clamp(34px, 5vw, 60px); line-height: .98; letter-spac
 .timeline { min-width: 100%; }
 .timeline.week { min-width: 1050px; }
 .timeline.day { min-width: 760px; }
-.timeline-header, .timeline-row { display: grid; grid-template-columns: 178px minmax(0,1fr); }
+.timeline-header, .timeline-row { display: grid; grid-template-columns: var(--species-col) minmax(0,1fr); }
 .timeline-header { position: sticky; top: 0; z-index: 4; background: #efebe1; border-bottom: 1px solid var(--line); }
 .timeline-header-label { padding: 10px 15px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .09em; border-right: 1px solid var(--line); }
 .timeline-scale { position: relative; min-height: 42px; }
@@ -93,12 +93,15 @@ h1 { margin: 0; font-size: clamp(34px, 5vw, 60px); line-height: .98; letter-spac
 .timeline-row:last-child { border-bottom: 0; }
 .species-cell { position: sticky; left: 0; z-index: 3; background: #f5f2ea; border-right: 1px solid var(--line); padding: 10px 14px; display: flex; flex-direction: column; justify-content: center; cursor: pointer; }
 .species-cell strong { font-size: 14px; font-weight: 700; }
-.species-cell small { color: var(--muted); font-size: 10px; margin-top: 3px; }
+.species-cell small { color: var(--muted); font-size: 10px; line-height: 1.25; margin-top: 3px; max-width: 155px; }
 .track { position: relative; min-height: 57px; cursor: crosshair; background-image: linear-gradient(to right, rgba(55,65,58,.035) 1px, transparent 1px); background-size: calc(100% / 12) 100%; }
 .timeline.month .track { background-size: calc(100% / 31) 100%; }
 .timeline.week .track { background-size: calc(100% / 7) 100%; }
 .timeline.day .track { background-size: calc(100% / 24) 100%; }
-.segment { position: absolute; top: 18px; height: 20px; min-width: 2px; border-radius: 2px; transition: filter .15s ease; }
+.segment { position: absolute; top: 18px; height: 20px; min-width: 2px; border-radius: 2px; transition: filter .15s ease; overflow: visible; }
+.edge-label { position: absolute; z-index: 3; display: block; white-space: nowrap; font-size: 9px; line-height: 1; font-weight: 750; color: var(--forest-950); background: rgba(243,240,231,.92); padding: 2px 3px; border-radius: 3px; pointer-events: none; font-variant-numeric: tabular-nums; }
+.edge-label.start { left: 0; top: -15px; transform: translateX(-1px); }
+.edge-label.end { right: 0; top: 23px; transform: translateX(1px); }
 .segment:hover { filter: brightness(.92); }
 .segment.normal { background: var(--moss-600); }
 .segment.restricted { background: repeating-linear-gradient(135deg, var(--amber), var(--amber) 6px, var(--amber-soft) 6px, var(--amber-soft) 10px); }
@@ -189,7 +192,7 @@ h1 { margin: 0; font-size: clamp(34px, 5vw, 60px); line-height: .98; letter-spac
   .legend-row { gap: 12px; padding: 4px 0 9px; }
   .legend-note { width: 100%; margin-left: 0; }
   .calendar-heading { padding: 17px 14px 12px; align-items: flex-start; flex-direction: column; gap: 8px; }
-  .timeline-header, .timeline-row { grid-template-columns: 112px minmax(0,1fr); }
+  .timeline { --species-col: 112px; }
   .timeline-header-label { padding-left: 10px; }
   .species-cell { padding: 8px 9px; }
   .species-cell strong { font-size: 12px; }
@@ -216,4 +219,8 @@ h1 { margin: 0; font-size: clamp(34px, 5vw, 60px); line-height: .98; letter-spac
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
+}
+.timeline-hint { margin: 0; padding: 8px 14px 9px; border-top: 1px solid rgba(212,206,191,.55); color: var(--muted); font-size: 11px; text-align: right; background: rgba(239,235,225,.55); }
+@media (hover: hover) and (pointer: fine) {
+  .timeline-scroller:not(.grabbing):hover .timeline-hint { color: var(--forest-700); }
 }
