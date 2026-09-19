@@ -224,6 +224,100 @@ function activityTextForDay(id,date){
   const segs=activitySegmentsForDay(id,date);
   return segs.map(x=>`${clock(x.start)}–${clock(x.end)}`).join(' · ');
 }
+function dateFromKey(key){
+  const [y,m,d]=String(key).split('-').map(Number);
+  return dateUTC(y,m-1,d);
+}
+function forecastPointsForDate(date){
+  const key=`${date.getUTCFullYear()}-${String(date.getUTCMonth()+1).padStart(2,'0')}-${String(date.getUTCDate()).padStart(2,'0')}`;
+  return weatherState.forecast?.points?.filter(p=>localDateKey(p.time)===key)||[];
+}
+function weatherHourlySegments(id,r){
+  const points=weatherState.forecast?.points||[];
+  if(!points.length)return [];
+  const totalDays=daysBetween(r.start,r.end)+1,total=totalDays*1440,out=[];
+  for(let i=0;i<points.length;i++){
+    const p=points[i],key=localDateKey(p.time),d=dateFromKey(key);
+    if(d<r.start||d>r.end)continue;
+    const minute=localMinute(p.time),dayIndex=daysBetween(r.start,d);
+    let duration=60;
+    const next=points[i+1];
+    if(next){
+      const delta=(new Date(next.time)-new Date(p.time))/60000;
+      if(Number.isFinite(delta)&&delta>0)duration=Math.min(180,delta);
+    }
+    const score=huntingWeatherScore(id,p.data||{}),grade=weatherGrade(score);
+    const legal=dailySegments(id,d,state.location).filter(x=>x.state!=='uncertain');
+    for(const l of legal){
+      const start=Math.max(minute,l.start),end=Math.min(minute+duration,l.end);
+      if(end<=start)continue;
+      const absStart=dayIndex*1440+start,absEnd=dayIndex*1440+end;
+      out.push({left:absStart/total*100,width:(absEnd-absStart)/total*100,grade,score});
+    }
+  }
+  return out;
+}
+function renderWeatherSegments(id,r){
+  if((state.view!=='week'&&state.view!=='day')||weatherState.status!=='ready')return '';
+  return weatherHourlySegments(id,r).map(x=>`<span class="weather-segment ${x.grade}" style="left:${x.left}%;width:${x.width}%" title="Jaktväder ${weatherGradeLabel(x.score)}"></span>`).join('');
+}
+function formatNum(v,digits=0){
+  return Number.isFinite(v)?Number(v).toFixed(digits).replace('.',','):'–';
+}
+function weatherDayLabel(key){
+  const d=dateFromKey(key);
+  return cap(new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',weekday:'short',day:'numeric',month:'short'}).format(d).replace('.',''));
+}
+function renderWeatherPlanner(){
+  const panel=$('weatherPlanner'),status=$('weatherStatus'),daysEl=$('weatherDays');
+  if(!panel||!status||!daysEl)return;
+  panel.hidden=false;
+  if(weatherState.status==='loading'){
+    status.textContent='Hämtar prognos från SMHI…';daysEl.innerHTML='';return;
+  }
+  if(weatherState.status==='error'){
+    status.textContent='SMHI-prognosen kunde inte hämtas just nu.';daysEl.innerHTML='';return;
+  }
+  const points=weatherState.forecast?.points||[];
+  if(!points.length){
+    status.textContent='Ingen prognos tillgänglig för platsen.';daysEl.innerHTML='';return;
+  }
+  const grouped=new Map();
+  for(const p of points){
+    const k=localDateKey(p.time);
+    if(!grouped.has(k))grouped.set(k,[]);
+    grouped.get(k).push(p);
+  }
+  const entries=[...grouped.entries()].slice(0,8);
+  status.textContent=`SMHI · uppdaterad ${weatherState.forecast.referenceTime?new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'}).format(new Date(weatherState.forecast.referenceTime)).replace('.',''):'nyligen'}`;
+  daysEl.innerHTML=entries.map(([key,pts])=>{
+    const s=summarizeForecastDay(pts);
+    if(!s)return'';
+    return `<button type="button" class="weather-day" data-weather-date="${key}">
+      <strong>${esc(weatherDayLabel(key))}</strong>
+      <span>${formatNum(s.tempMin)}–${formatNum(s.tempMax)} °C</span>
+      <small>Vind ${formatNum(s.windAvg,1)}–${formatNum(s.windMax,1)} m/s · ${formatNum(s.precip,1)} mm</small>
+    </button>`;
+  }).join('');
+  daysEl.querySelectorAll('[data-weather-date]').forEach(b=>b.addEventListener('click',()=>{
+    state.anchor=dateFromKey(b.dataset.weatherDate);state.view='day';renderAll();
+  }));
+}
+async function loadWeather(){
+  weatherAbort?.abort?.();
+  weatherAbort=new AbortController();
+  weatherState={status:'loading',forecast:null,error:null};
+  renderWeatherPlanner();
+  try{
+    const forecast=await fetchSmhiForecast(state.location,{signal:weatherAbort.signal});
+    weatherState={status:'ready',forecast,error:null};
+    renderWeatherPlanner();renderTimeline();
+  }catch(err){
+    if(err?.name==='AbortError')return;
+    weatherState={status:'error',forecast:null,error:err};
+    renderWeatherPlanner();renderTimeline();
+  }
+}
 function segmentLabels(seg,nav,current){
   if(state.view==='day'||state.view==='week'){
     const startDay=Math.floor(seg.startAbs/1440),endPoint=Math.max(0,seg.endAbs-1),endDay=Math.floor(endPoint/1440);
@@ -281,7 +375,7 @@ function renderTimeline(){
   const current=range(),nav=navigationRange(current);$('periodTitle').textContent=current.label;$('periodContext').textContent=current.context;const t=$('timeline');t.className=`timeline ${state.view}`;t.style.width='300%';
   const sp=visible(current);$('emptyState').hidden=sp.length>0;
   const head=`<div class="timeline-header"><div class="timeline-header-label">Art</div><div class="timeline-scale">${markers(nav).map(m=>`<i class="scale-marker" style="left:${m.left}%"><span>${esc(m.label)}</span></i>`).join('')}${nowScaleMarker(nav)}</div></div>`;
-  t.innerHTML=head+sp.map(s=>{const seg=(state.view==='week'||state.view==='day'?hourlySegments:seasonSegments)(s.id,nav);return `<div class="timeline-row"><button type="button" class="species-cell" data-label="${s.id}"><strong>${esc(s.name)}</strong><small>${esc(subtitle(s.id))}</small></button><div class="track" data-track="${s.id}">${seg.map(x=>renderSegment(x,nav,current)).join('')}${renderActivitySegments(s.id,nav)}${nowLine(nav)}</div></div>`}).join('');
+  t.innerHTML=head+sp.map(s=>{const seg=(state.view==='week'||state.view==='day'?hourlySegments:seasonSegments)(s.id,nav);return `<div class="timeline-row"><button type="button" class="species-cell" data-label="${s.id}"><strong>${esc(s.name)}</strong><small>${esc(subtitle(s.id))}</small></button><div class="track" data-track="${s.id}">${seg.map(x=>renderSegment(x,nav,current)).join('')}${renderActivitySegments(s.id,nav)}${renderWeatherSegments(s.id,nav)}${nowLine(nav)}</div></div>`}).join('');
   t.querySelectorAll('[data-label]').forEach(x=>x.addEventListener('click',()=>detail(x.dataset.label,state.anchor)));
   t.querySelectorAll('[data-track]').forEach(x=>x.addEventListener('click',e=>{if($('timelineScroller').classList.contains('dragging'))return;const q=clamp((e.clientX-x.getBoundingClientRect().left)/x.getBoundingClientRect().width,0,.99999);detail(x.dataset.track,addDays(nav.start,Math.floor(q*(daysBetween(nav.start,nav.end)+1))))}));
   alignScroller(nav,current);
@@ -317,7 +411,7 @@ function detail(id,date){
   $('detailDialog').showModal();
 }
 function nextPeriod(id,date){for(let i=1;i<=370;i++){const d=addDays(date,i),r=activeRules(id,d,state.location);if(r.length)return `<article class="rule-card"><h3>Nästa säsongsperiod</h3><p>${esc(cap(df.format(d)))}</p><p>${esc(r.map(x=>x.label||periodLabel(x)).join(' · '))}</p></article>`}return'<article class="rule-card"><p>Ingen period hittades för vald plats inom kommande året.</p></article>'}
-function renderAll(){renderTop();renderTimeline()}
+function renderAll(){renderTop();renderWeatherPlanner();renderTimeline()}
 function shift(n){if(state.view==='year')state.anchor=dateUTC(state.anchor.getUTCFullYear()+n,state.anchor.getUTCMonth(),1);else if(state.view==='month')state.anchor=addMonths(state.anchor,n);else state.anchor=addDays(state.anchor,n*(state.view==='week'?7:1));renderAll()}
 
 function speciesDialog(){selectedDraft=new Set(state.selected);renderSpecies();$('speciesDialog').showModal()}
@@ -399,7 +493,7 @@ $('showRelevant').addEventListener('click',()=>{state.displayMode='relevant';ren
 $('searchPlaceButton').addEventListener('click',search);$('placeSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();search()}});$('myLocationButton').addEventListener('click',geolocate);
 $('selectAllRelevant').addEventListener('click',()=>{const r=range();SPECIES.filter(s=>speciesRelevant(s.id,state.location,r.start,r.end)).forEach(s=>selectedDraft.add(s.id));renderSpecies()});$('clearSpecies').addEventListener('click',()=>{selectedDraft.clear();renderSpecies()});
 $('saveSpeciesButton').addEventListener('click',e=>{e.preventDefault();state.selected=new Set(selectedDraft);localStorage.setItem('jaktkalender.species',JSON.stringify([...state.selected]));state.displayMode='selected';$('speciesDialog').close();renderAll()});
-$('saveLocationButton').addEventListener('click',e=>{e.preventDefault();state.location=repairSavedLocation(structuredClone(locationDraft));localStorage.setItem('jaktkalender.location',JSON.stringify(state.location));$('locationDialog').close();renderAll()});
+$('saveLocationButton').addEventListener('click',e=>{e.preventDefault();state.location=repairSavedLocation(structuredClone(locationDraft));localStorage.setItem('jaktkalender.location',JSON.stringify(state.location));$('locationDialog').close();renderAll();loadWeather()});
 document.querySelectorAll('[data-close-dialog]').forEach(b=>b.addEventListener('click',()=>$(b.dataset.closeDialog)?.close()));
 
 const scroller=$('timelineScroller');
@@ -429,6 +523,7 @@ const endDrag=e=>{
 };
 scroller.addEventListener('pointerup',endDrag);scroller.addEventListener('pointercancel',endDrag);
 renderAll();
+loadWeather();
 setInterval(()=>{
   renderTop();
   renderTimeline();
