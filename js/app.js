@@ -1,5 +1,6 @@
 import { DEFAULT_LOCATION, DEFAULT_SELECTED } from './data.js';
-import { SPECIES, GROUPS, activeRules, matchingRules, seasonState, dailySegments, sunSummary, describeDailyRule, speciesRelevant, sourceFor, periodLabel, inferSpecialAreas } from './rules.js';\nimport { adviceFor } from './advice.js';
+import { SPECIES, GROUPS, activeRules, matchingRules, seasonState, dailySegments, sunSummary, describeDailyRule, speciesRelevant, sourceFor, periodLabel, inferSpecialAreas } from './rules.js';
+import { adviceFor } from './advice.js';
 
 const $=id=>document.getElementById(id);
 const df=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',weekday:'long',day:'numeric',month:'long',year:'numeric'});
