@@ -120,7 +120,19 @@ export const ACTIVITY_WINDOWS = {
   rodrav: { profile: 'dawnDusk', morningAfterSunrise: 90, eveningBeforeSunset: 90 },
   baver: { profile: 'dawnDusk', morningAfterSunrise: 60, eveningBeforeSunset: 60 },
   gravling: { profile: 'night' },
-  grasand: { profile: 'dawnDusk', morningAfterSunrise: 60, eveningBeforeSunset: 60 }
+
+  blasgas: { profile: 'dawnDusk', morningAfterSunrise: 120, eveningBeforeSunset: 60 },
+  gragas: { profile: 'dawnDusk', morningAfterSunrise: 120, eveningBeforeSunset: 60 },
+  kanadagas: { profile: 'dawnDusk', morningAfterSunrise: 120, eveningBeforeSunset: 60 },
+
+  blasand: { profile: 'dawnDusk', morningAfterSunrise: 60, eveningBeforeSunset: 60 },
+  grasand: { profile: 'dawnDusk', morningAfterSunrise: 60, eveningBeforeSunset: 60 },
+  kricka: { profile: 'dawnDusk', morningAfterSunrise: 60, eveningBeforeSunset: 60 },
+  knipa: { profile: 'dawnDusk', morningAfterSunrise: 60, eveningBeforeSunset: 60 },
+  storskrake: { profile: 'dawnDusk', morningAfterSunrise: 60, eveningBeforeSunset: 60 },
+  sjoorre: { profile: 'dawnDusk', morningAfterSunrise: 60, eveningBeforeSunset: 60 },
+  vigg: { profile: 'dawnDusk', morningAfterSunrise: 60, eveningBeforeSunset: 60 },
+  snatterand: { profile: 'dawnDusk', morningAfterSunrise: 60, eveningBeforeSunset: 60 }
 };
 
 export function activityWindowFor(speciesId) {
