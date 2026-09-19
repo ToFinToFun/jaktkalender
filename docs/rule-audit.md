@@ -18,7 +18,7 @@ Vi tar med regler som direkt formar tidslinjen:
 - solrelaterad start/slut
 - fast följdregel som gäller under en del av tidsfönstret, t.ex. endast smyg-/vaktjakt
 
-Vi tar inte med kvoter, avlysningar, personliga tillstånd, jakträtt, vapenklass, belysning eller andra utföranderegler.
+Vi tar inte med kvoter, avlysningar, personliga tillstånd, jakträtt, vapenklass, belysning eller andra utföranderegler. Skyddsjakt enligt bilaga 4 ligger utanför kalenderns scope.
 
 ## Primära källor
 
