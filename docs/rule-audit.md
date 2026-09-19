@@ -2,7 +2,7 @@
 
 Senast uppdaterad: 2026-09-19
 
-Det här dokumentet är arbetsunderlaget för den statiska regelmotor som ska driva Jaktkalendern. UI byggs först när regeltyperna är verifierade.
+Det här dokumentet är granskningsunderlaget för den statiska regelmotor som driver Jaktkalendern. Regeltyperna nedan är implementerade i `js/data.js` och `js/rules.js`.
 
 ## Princip
 
@@ -131,7 +131,7 @@ Bekräftat behov:
 
 Vissa av dessa kan lösas med statiska polygoner. Några är administrativa jaktområden som inte lämpar sig för vanlig ortsgeokodning och måste hanteras varsamt i UI:t.
 
-## Frågor som ska lösas innan UI byggs
+## Beslut för specialfallen
 
 ### 1. Björnens visualisering
 
