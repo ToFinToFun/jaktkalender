@@ -5,7 +5,7 @@ const $=id=>document.getElementById(id);
 const df=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',weekday:'long',day:'numeric',month:'long',year:'numeric'});
 const ds=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',day:'numeric',month:'short'});
 const dm=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',month:'short'});
-const dml=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',month:'long',year:'numeric'});
+const dml=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',month:'long',year:'numeric'});\nconst de=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',day:'numeric',month:'short'});
 const cap=s=>s? s[0].toUpperCase()+s.slice(1):'';
 const esc=(s='')=>String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -34,6 +34,39 @@ function range(){
   if(state.view==='week'){const wd=(a.getUTCDay()+6)%7,start=addDays(a,-wd);return{start,end:addDays(start,6),label:`${ds.format(start)} – ${ds.format(addDays(start,6))}`,context:'Vecka'}}
   return{start:a,end:a,label:cap(df.format(a)),context:'Dag'};
 }
+function navigationRange(r){
+  if(state.view==='year')return{start:dateUTC(r.start.getUTCFullYear()-1,6,1),end:dateUTC(r.end.getUTCFullYear()+1,5,30)};
+  if(state.view==='month')return{start:dateUTC(r.start.getUTCFullYear(),r.start.getUTCMonth()-1,1),end:dateUTC(r.end.getUTCFullYear(),r.end.getUTCMonth()+2,0)};
+  if(state.view==='week')return{start:addDays(r.start,-7),end:addDays(r.end,7)};
+  return{start:addDays(r.start,-1),end:addDays(r.end,1)};
+}
+function currentClockMinutes(){
+  const p=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date());
+  return +p.find(x=>x.type==='hour').value*60 + +p.find(x=>x.type==='minute').value;
+}
+function durationText(minutes){
+  minutes=Math.max(0,Math.round(minutes));
+  if(minutes<60)return `${minutes} min`;
+  if(minutes<1440){const h=Math.floor(minutes/60),m=minutes%60;return m?`${h} h ${m} min`:`${h} h`}
+  const d=Math.floor(minutes/1440),h=Math.floor((minutes%1440)/60);return h?`${d} d ${h} h`:`${d} dagar`;
+}
+function speciesNowStatus(id){
+  const today=stockholmToday(),now=currentClockMinutes(),todayState=seasonState(id,today,state.location);
+  if(state.view==='week'||state.view==='day'){
+    const segs=dailySegments(id,today,state.location);
+    const active=segs.find(s=>now>=s.start&&now<s.end);
+    if(active)return `${durationText(active.end-now)} kvar idag`;
+    const nextToday=segs.find(s=>s.start>now);
+    if(nextToday)return `börjar om ${durationText(nextToday.start-now)}`;
+    for(let i=1;i<=7;i++){const next=dailySegments(id,addDays(today,i),state.location);if(next.length)return `börjar om ${durationText(i*1440-now+next[0].start)}`}
+  }
+  if(todayState!=='off'){
+    for(let i=1;i<=400;i++)if(seasonState(id,addDays(today,i),state.location)==='off')return i===1?'sista dagen':`${i} dagar kvar`;
+  }else{
+    for(let i=1;i<=400;i++)if(seasonState(id,addDays(today,i),state.location)!=='off')return i===1?'börjar i morgon':`börjar om ${i} dagar`;
+  }
+  return'';
+}
 function renderTop(){
   $('locationButtonLabel').textContent=state.location.name||'Vald plats';
   const sun=sunSummary(stockholmToday(),state.location);
@@ -46,38 +79,79 @@ function renderTop(){
 }
 function markers(r){
   const out=[],days=daysBetween(r.start,r.end)+1;
-  if(state.view==='year'){for(let d=dateUTC(r.start.getUTCFullYear(),r.start.getUTCMonth(),1);d<=r.end;d=addMonths(d,1))out.push({left:daysBetween(r.start,d)/days*100,label:dm.format(d).replace('.','')})}
-  else if(state.view==='month'){for(let d=1;d<=r.end.getUTCDate();d+=5)out.push({left:(d-1)/days*100,label:String(d)})}
-  else if(state.view==='week'){for(let i=0;i<7;i++){const d=addDays(r.start,i);out.push({left:i/7*100,label:`${cap(new Intl.DateTimeFormat('sv-SE',{weekday:'short'}).format(d))} ${d.getUTCDate()}`})}}
-  else for(let h=0;h<24;h+=3)out.push({left:h/24*100,label:String(h).padStart(2,'0')});
+  if(state.view==='year'){
+    for(let d=dateUTC(r.start.getUTCFullYear(),r.start.getUTCMonth(),1);d<=r.end;d=addMonths(d,1))out.push({left:daysBetween(r.start,d)/days*100,label:dm.format(d).replace('.','')});
+  }else if(state.view==='month'){
+    for(let d=new Date(r.start);d<=r.end;d=addDays(d,7))out.push({left:daysBetween(r.start,d)/days*100,label:ds.format(d).replace('.','')});
+  }else if(state.view==='week'){
+    for(let d=new Date(r.start);d<=r.end;d=addDays(d,1))out.push({left:daysBetween(r.start,d)/days*100,label:`${cap(new Intl.DateTimeFormat('sv-SE',{weekday:'short'}).format(d))} ${d.getUTCDate()}`});
+  }else{
+    for(let di=0;di<days;di++)for(let h=0;h<24;h+=3){const d=addDays(r.start,di);out.push({left:(di*1440+h*60)/(days*1440)*100,label:h===0?`${ds.format(d)} · 00`:String(h).padStart(2,'0')})}
+  }
   return out;
 }
 function visible(r){let x=SPECIES.filter(s=>speciesRelevant(s.id,state.location,r.start,r.end));if(state.displayMode==='selected')x=x.filter(s=>state.selected.has(s.id));return x}
 function seasonSegments(id,r){
   const n=daysBetween(r.start,r.end)+1,out=[];let st=null,from=0;
   for(let i=0;i<n;i++){const x=seasonState(id,addDays(r.start,i),state.location);if(x!==st){if(st&&st!=='off')out.push({start:from,end:i,state:st});st=x;from=i}}
-  if(st&&st!=='off')out.push({start:from,end:n,state:st});return out.map(x=>({left:x.start/n*100,width:(x.end-x.start)/n*100,state:x.state}));
+  if(st&&st!=='off')out.push({start:from,end:n,state:st});
+  return out.map(x=>({left:x.start/n*100,width:(x.end-x.start)/n*100,state:x.state,startDate:addDays(r.start,x.start),endDate:addDays(r.start,x.end-1)}));
 }
 function hourlySegments(id,r){
   const days=daysBetween(r.start,r.end)+1,total=days*1440,raw=[];
   for(let i=0;i<days;i++)for(const x of dailySegments(id,addDays(r.start,i),state.location))raw.push({start:i*1440+x.start,end:i*1440+x.end,state:x.state});
   raw.sort((a,b)=>a.start-b.start);const merged=[];for(const x of raw){const p=merged.at(-1);if(p&&p.state===x.state&&p.end===x.start)p.end=x.end;else merged.push({...x})}
-  return merged.map(x=>({left:x.start/total*100,width:(x.end-x.start)/total*100,state:x.state}));
+  return merged.map(x=>({left:x.start/total*100,width:(x.end-x.start)/total*100,state:x.state,startAbs:x.start,endAbs:x.end}));
 }
-function subtitle(id){const x=matchingRules(id,state.anchor,state.location);return !x.length?'ingen period för området':x.some(r=>r.kind==='window')?'licensjaktsfönster':x.some(r=>r.daily!=='allDay')?'solstyrd dygnstid':'fast säsongsperiod'}
+function segmentLabels(seg,nav,current){
+  if(state.view==='day'||state.view==='week'){
+    const startDay=Math.floor(seg.startAbs/1440),endPoint=Math.max(0,seg.endAbs-1),endDay=Math.floor(endPoint/1440);
+    const sd=addDays(nav.start,startDay),ed=addDays(nav.start,endDay);
+    const startMinute=seg.startAbs%1440,endMinute=seg.endAbs%1440||1440;
+    return{start:sd>=current.start&&sd<=current.end?clock(startMinute):'',end:ed>=current.start&&ed<=current.end?clock(endMinute):''};
+  }
+  return{start:seg.startDate>=current.start&&seg.startDate<=current.end?de.format(seg.startDate).replace('.',''):'',end:seg.endDate>=current.start&&seg.endDate<=current.end?de.format(seg.endDate).replace('.',''):''};
+}
+function renderSegment(seg,nav,current){
+  const labels=segmentLabels(seg,nav,current);
+  return `<span class="segment ${seg.state}" style="left:${seg.left}%;width:${seg.width}%">${labels.start?`<b class="edge-label start">${esc(labels.start)}</b>`:''}${labels.end?`<b class="edge-label end">${esc(labels.end)}</b>`:''}</span>`;
+}
+function subtitle(id){const x=matchingRules(id,state.anchor,state.location);const base=!x.length?'ingen period för området':x.some(r=>r.kind==='window')?'licensjaktsfönster':x.some(r=>r.daily!=='allDay')?'solstyrd dygnstid':'fast säsongsperiod';const countdown=speciesNowStatus(id);return countdown?`${base} · ${countdown}`:base}
 function nowLine(r){
   const today=stockholmToday();if(today<r.start||today>r.end)return'';const days=daysBetween(r.start,r.end)+1;
-  const p=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date());
-  const mins=+p.find(x=>x.type==='hour').value*60 + +p.find(x=>x.type==='minute').value;
+  const mins=currentClockMinutes();
   return `<i class="now-line" style="left:${(daysBetween(r.start,today)+mins/1440)/days*100}%" title="Nu"></i>`;
 }
+let suppressScrollNavigation=false,scrollTimer=null;
+function alignScroller(nav,current){
+  const sc=$('timelineScroller'),t=$('timeline');
+  requestAnimationFrame(()=>{
+    const labelWidth=parseFloat(getComputedStyle(t).getPropertyValue('--species-col'))||178;
+    const trackWidth=Math.max(1,sc.scrollWidth-labelWidth),navDays=daysBetween(nav.start,nav.end)+1,before=daysBetween(nav.start,current.start);
+    suppressScrollNavigation=true;sc.scrollLeft=trackWidth*(before/navDays);
+    setTimeout(()=>{suppressScrollNavigation=false},140);
+  });
+}
 function renderTimeline(){
-  const r=range();$('periodTitle').textContent=r.label;$('periodContext').textContent=r.context;const t=$('timeline');t.className=`timeline ${state.view}`;
-  const sp=visible(r);$('emptyState').hidden=sp.length>0;
-  const head=`<div class="timeline-header"><div class="timeline-header-label">Art</div><div class="timeline-scale">${markers(r).map(m=>`<i class="scale-marker" style="left:${m.left}%"><span>${esc(m.label)}</span></i>`).join('')}</div></div>`;
-  t.innerHTML=head+sp.map(s=>{const seg=(state.view==='week'||state.view==='day'?hourlySegments:seasonSegments)(s.id,r);return `<div class="timeline-row"><button type="button" class="species-cell" data-label="${s.id}"><strong>${esc(s.name)}</strong><small>${esc(subtitle(s.id))}</small></button><div class="track" data-track="${s.id}">${seg.map(x=>`<span class="segment ${x.state}" style="left:${x.left}%;width:${x.width}%"></span>`).join('')}${nowLine(r)}</div></div>`}).join('');
+  const current=range(),nav=navigationRange(current);$('periodTitle').textContent=current.label;$('periodContext').textContent=current.context;const t=$('timeline');t.className=`timeline ${state.view}`;t.style.width='300%';
+  const sp=visible(current);$('emptyState').hidden=sp.length>0;
+  const head=`<div class="timeline-header"><div class="timeline-header-label">Art</div><div class="timeline-scale">${markers(nav).map(m=>`<i class="scale-marker" style="left:${m.left}%"><span>${esc(m.label)}</span></i>`).join('')}</div></div>`;
+  t.innerHTML=head+sp.map(s=>{const seg=(state.view==='week'||state.view==='day'?hourlySegments:seasonSegments)(s.id,nav);return `<div class="timeline-row"><button type="button" class="species-cell" data-label="${s.id}"><strong>${esc(s.name)}</strong><small>${esc(subtitle(s.id))}</small></button><div class="track" data-track="${s.id}">${seg.map(x=>renderSegment(x,nav,current)).join('')}${nowLine(nav)}</div></div>`}).join('');
   t.querySelectorAll('[data-label]').forEach(x=>x.addEventListener('click',()=>detail(x.dataset.label,state.anchor)));
-  t.querySelectorAll('[data-track]').forEach(x=>x.addEventListener('click',e=>{const q=clamp((e.clientX-x.getBoundingClientRect().left)/x.getBoundingClientRect().width,0,.99999);detail(x.dataset.track,addDays(r.start,Math.floor(q*(daysBetween(r.start,r.end)+1))))}));
+  t.querySelectorAll('[data-track]').forEach(x=>x.addEventListener('click',e=>{if($('timelineScroller').classList.contains('dragging'))return;const q=clamp((e.clientX-x.getBoundingClientRect().left)/x.getBoundingClientRect().width,0,.99999);detail(x.dataset.track,addDays(nav.start,Math.floor(q*(daysBetween(nav.start,nav.end)+1))))}));
+  alignScroller(nav,current);
+}
+function handleTimelineScroll(){
+  if(suppressScrollNavigation)return;
+  clearTimeout(scrollTimer);
+  scrollTimer=setTimeout(()=>{
+    const sc=$('timelineScroller'),t=$('timeline'),current=range(),nav=navigationRange(current);
+    const labelWidth=parseFloat(getComputedStyle(t).getPropertyValue('--species-col'))||178;
+    const trackWidth=Math.max(1,sc.scrollWidth-labelWidth),visibleTrack=Math.max(1,sc.clientWidth-labelWidth);
+    const midpoint=sc.scrollLeft+visibleTrack/2,fraction=clamp(midpoint/trackWidth,0,.99999);
+    const d=addDays(nav.start,Math.floor(fraction*(daysBetween(nav.start,nav.end)+1)));
+    if(d<current.start)shift(-1);else if(d>current.end)shift(1);
+  },220);
 }
 function detail(id,date){
   const sp=SPECIES.find(x=>x.id===id);if(!sp)return;const rules=activeRules(id,date,state.location),sun=sunSummary(date,state.location),segs=dailySegments(id,date,state.location);
@@ -131,4 +205,28 @@ $('selectAllRelevant').addEventListener('click',()=>{const r=range();SPECIES.fil
 $('saveSpeciesButton').addEventListener('click',e=>{e.preventDefault();state.selected=new Set(selectedDraft);localStorage.setItem('jaktkalender.species',JSON.stringify([...state.selected]));state.displayMode='selected';$('speciesDialog').close();renderAll()});
 $('saveLocationButton').addEventListener('click',e=>{e.preventDefault();state.location=inferSpecialAreas(structuredClone(locationDraft));localStorage.setItem('jaktkalender.location',JSON.stringify(state.location));$('locationDialog').close();renderAll()});
 document.querySelectorAll('[data-close-dialog]').forEach(b=>b.addEventListener('click',()=>$(b.dataset.closeDialog)?.close()));
+
+const scroller=$('timelineScroller');
+scroller.addEventListener('scroll',handleTimelineScroll,{passive:true});
+scroller.addEventListener('wheel',e=>{
+  const horizontal=Math.abs(e.deltaX)>Math.abs(e.deltaY);
+  if(horizontal||e.shiftKey){e.preventDefault();scroller.scrollLeft+=horizontal?e.deltaX:e.deltaY}
+},{passive:false});
+let dragStartX=0,dragStartScroll=0,dragMoved=false;
+scroller.addEventListener('pointerdown',e=>{
+  if(e.pointerType==='mouse'&&e.button!==0)return;
+  dragStartX=e.clientX;dragStartScroll=scroller.scrollLeft;dragMoved=false;
+  scroller.setPointerCapture?.(e.pointerId);scroller.classList.add('grabbing');
+});
+scroller.addEventListener('pointermove',e=>{
+  if(!scroller.classList.contains('grabbing'))return;
+  const dx=e.clientX-dragStartX;if(Math.abs(dx)>8)dragMoved=true;
+  if(dragMoved){scroller.classList.add('dragging');scroller.scrollLeft=dragStartScroll-dx}
+});
+const endDrag=e=>{
+  if(!scroller.classList.contains('grabbing'))return;
+  scroller.classList.remove('grabbing');setTimeout(()=>scroller.classList.remove('dragging'),70);
+  scroller.releasePointerCapture?.(e.pointerId);
+};
+scroller.addEventListener('pointerup',endDrag);scroller.addEventListener('pointercancel',endDrag);
 renderAll();
