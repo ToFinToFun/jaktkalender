@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#23352b" />
+  <meta name="description" content="Visuell svensk jaktkalender med jaktsäsonger, platsanpassade soltider och fasta tidsregler." />
+  <title>Jaktkalender</title>
+  <link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.7.1/dist/maplibre-gl.css" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="brand-wrap">
+      <a class="brand" href="/" aria-label="Jaktkalender – startsida">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>
+          <strong>Jaktkalender</strong>
+          <small>Säsonger · plats · sol</small>
+        </span>
+      </a>
+      <button id="locationButton" class="location-button" type="button" aria-haspopup="dialog">
+        <span class="location-kicker">Plats</span>
+        <span id="locationButtonLabel">Luleå</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="page-shell">
+    <section class="intro-row" aria-labelledby="pageTitle">
+      <div>
+        <p class="eyebrow">Svenska jaktsäsonger</p>
+        <h1 id="pageTitle">Se året som en tidslinje</h1>
+        <p class="lede">Välj plats och arter. Kalendern visar de fasta säsongsperioderna och räknar ut solstyrda tider för varje dag.</p>
+      </div>
+      <div class="sun-card" aria-live="polite">
+        <div><span>Soluppgång</span><strong id="sunriseNow">–</strong></div>
+        <div><span>Solnedgång</span><strong id="sunsetNow">–</strong></div>
+        <small id="sunLocation">för vald plats idag</small>
+      </div>
+    </section>
+
+    <section class="toolbar" aria-label="Kalenderinställningar">
+      <div class="view-switch" role="group" aria-label="Zoomnivå">
+        <button type="button" data-view="year" class="active">År</button>
+        <button type="button" data-view="month">Månad</button>
+        <button type="button" data-view="week">Vecka</button>
+        <button type="button" data-view="day">Dag</button>
+      </div>
+      <div class="period-nav">
+        <button id="prevPeriod" type="button" class="icon-button" aria-label="Föregående period">‹</button>
+        <button id="todayButton" type="button" class="period-label">Idag</button>
+        <button id="nextPeriod" type="button" class="icon-button" aria-label="Nästa period">›</button>
+      </div>
+      <button id="speciesButton" type="button" class="filter-button" aria-haspopup="dialog">Arter <span id="speciesCount"></span></button>
+    </section>
+
+    <section class="legend-row" aria-label="Teckenförklaring">
+      <span><i class="legend-swatch normal"></i> Säsongsperiod</span>
+      <span><i class="legend-swatch restricted"></i> Särskild delperiod</span>
+      <span><i class="legend-swatch window"></i> Fast licensjaktsfönster</span>
+      <span class="legend-note">Kalendern visar säsong – inte personliga tillstånd, kvoter eller avlysningar.</span>
+    </section>
+
+    <section class="calendar-panel" aria-labelledby="periodTitle">
+      <div class="calendar-heading">
+        <div>
+          <p class="eyebrow" id="periodContext">Jaktår</p>
+          <h2 id="periodTitle">2026 / 2027</h2>
+        </div>
+        <div class="calendar-actions">
+          <button id="showRelevant" class="text-button active" type="button">För området</button>
+          <button id="showSelected" class="text-button" type="button">Mina arter</button>
+        </div>
+      </div>
+      <div id="timelineScroller" class="timeline-scroller">
+        <div id="timeline" class="timeline" aria-live="polite"></div>
+      </div>
+      <div id="emptyState" class="empty-state" hidden>Inga arter matchar filtret. Välj fler arter.</div>
+    </section>
+
+    <section class="about-strip">
+      <div>
+        <h2>Vad visar kalendern?</h2>
+        <p>Fasta jaktsäsonger enligt jaktförordningen och fasta tidsramar i Naturvårdsverkets föreskrifter. Soluppgång och solnedgång beräknas från vald koordinat.</p>
+      </div>
+      <button id="sourcesButton" type="button" class="secondary-button" aria-haspopup="dialog">Källor och avgränsning</button>
+    </section>
+  </main>
+
+  <dialog id="locationDialog" class="dialog wide-dialog">
+    <form method="dialog" class="dialog-shell" id="locationForm">
+      <div class="dialog-header">
+        <div>
+          <p class="eyebrow">Plats</p>
+          <h2>Välj var kalendern ska räknas</h2>
+        </div>
+        <button class="dialog-close" value="cancel" aria-label="Stäng">×</button>
+      </div>
+
+      <div class="location-grid">
+        <div class="location-search-panel">
+          <label for="placeSearch">Sök ort eller plats</label>
+          <div class="search-row">
+            <input id="placeSearch" type="search" placeholder="t.ex. Kallax, Luleå" autocomplete="off" />
+            <button id="searchPlaceButton" type="button" class="primary-button">Sök</button>
+          </div>
+          <p class="field-help">Sökningen görs först när du trycker Sök. Du kan också placera nålen direkt på kartan.</p>
+          <div id="searchStatus" class="search-status" aria-live="polite"></div>
+          <div id="searchResults" class="search-results"></div>
+          <button id="myLocationButton" type="button" class="secondary-button full-width">Använd min position</button>
+        </div>
+
+        <div class="map-panel">
+          <div id="map" class="map" role="application" aria-label="Karta för val av plats"></div>
+          <p class="map-help">Klicka på kartan eller dra nålen. Soltiderna räknas på den exakta koordinaten.</p>
+        </div>
+      </div>
+
+      <div class="chosen-location">
+        <div>
+          <span>Vald plats</span>
+          <strong id="chosenPlaceName">Luleå</strong>
+          <small id="chosenPlaceMeta">Norrbottens län · Luleå kommun</small>
+        </div>
+        <div class="coords" id="chosenCoords">65.5848, 22.1567</div>
+      </div>
+
+      <details id="specialAreaDetails" class="special-areas">
+        <summary>Särskilt geografiskt område</summary>
+        <p>Normalt räcker län och kommun. Om platsen ligger i någon av de fasta specialgränser som används i jaktreglerna kan du ange det här.</p>
+        <div id="specialAreaControls" class="special-area-controls"></div>
+      </details>
+
+      <div class="dialog-actions">
+        <button value="cancel" class="secondary-button">Avbryt</button>
+        <button id="saveLocationButton" value="default" class="primary-button">Använd platsen</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="speciesDialog" class="dialog">
+    <form method="dialog" class="dialog-shell" id="speciesForm">
+      <div class="dialog-header">
+        <div>
+          <p class="eyebrow">Filter</p>
+          <h2>Välj arter</h2>
+        </div>
+        <button class="dialog-close" value="cancel" aria-label="Stäng">×</button>
+      </div>
+      <div id="groupButtons" class="group-buttons"></div>
+      <div class="species-list-actions">
+        <button id="selectAllRelevant" type="button" class="text-button">Välj alla för området</button>
+        <button id="clearSpecies" type="button" class="text-button">Rensa</button>
+      </div>
+      <div id="speciesChecklist" class="species-checklist"></div>
+      <div class="dialog-actions">
+        <button value="cancel" class="secondary-button">Avbryt</button>
+        <button id="saveSpeciesButton" value="default" class="primary-button">Visa valda</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="detailDialog" class="dialog detail-dialog">
+    <div class="dialog-shell">
+      <div class="dialog-header">
+        <div>
+          <p class="eyebrow" id="detailGroup">Art</p>
+          <h2 id="detailTitle">Detaljer</h2>
+        </div>
+        <button class="dialog-close" type="button" data-close-dialog="detailDialog" aria-label="Stäng">×</button>
+      </div>
+      <div id="detailContent" class="detail-content"></div>
+    </div>
+  </dialog>
+
+  <dialog id="sourcesDialog" class="dialog">
+    <div class="dialog-shell">
+      <div class="dialog-header">
+        <div>
+          <p class="eyebrow">Källor</p>
+          <h2>Vad datan bygger på</h2>
+        </div>
+        <button class="dialog-close" type="button" data-close-dialog="sourcesDialog" aria-label="Stäng">×</button>
+      </div>
+      <div class="prose">
+        <p>Kalendern visar fasta säsongsperioder. Den följer inte tilldelning, kvot, avlysning, skyddsjakt, jakträtt eller personliga tillstånd.</p>
+        <h3>Primära källor</h3>
+        <p><a href="https://www.riksdagen.se/sv/dokument-och-lagar/dokument/svensk-forfattningssamling/jaktforordning-1987905_sfs-1987-905/" target="_blank" rel="noreferrer">Jaktförordning (1987:905), särskilt 9 § och bilaga 1–3</a></p>
+        <p><a href="https://www.naturvardsverket.se/lagar-och-regler/foreskrifter-och-allmanna-rad/2022/nfs-2022-4/" target="_blank" rel="noreferrer">NFS 2022:4 – fasta tidsramar för licensjakt på stora rovdjur</a></p>
+        <h3>Plats och karta</h3>
+        <p>Kartvisning: OpenFreeMap / OpenStreetMap. Ortsökning och omvänd geokodning: OpenStreetMap Nominatim. Soltider beräknas lokalt i webbläsaren.</p>
+        <h3>Dataversion</h3>
+        <p>Reglerna är strukturerade för jaktåret 2026/27 och inkluderar kända ändringar som träder i kraft 1 juli 2027 för de berörda posterna.</p>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="https://unpkg.com/maplibre-gl@5.7.1/dist/maplibre-gl.js"></script>
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>
