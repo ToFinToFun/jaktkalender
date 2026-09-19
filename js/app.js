@@ -1,5 +1,5 @@
 import { DEFAULT_LOCATION, DEFAULT_SELECTED } from './data.js';
-import { SPECIES, GROUPS, activeRules, matchingRules, seasonState, dailySegments, sunSummary, describeDailyRule, speciesRelevant, sourceFor, periodLabel, inferSpecialAreas } from './rules.js';
+import { SPECIES, GROUPS, activeRules, matchingRules, seasonState, dailySegments, sunSummary, describeDailyRule, speciesRelevant, sourceFor, periodLabel, inferSpecialAreas, normalizeCounty, normalizeMunicipality } from './rules.js';
 import { adviceFor, activityWindowFor } from './advice.js';
 import { getSunTimes, getCivilTwilightTimes, stockholmMinutes, roundMinutes } from './sun.js';
 
@@ -23,9 +23,36 @@ function stockholmToday(){
   return dateUTC(+p.find(x=>x.type==='year').value,+p.find(x=>x.type==='month').value-1,+p.find(x=>x.type==='day').value);
 }
 function load(key,fallback){try{return JSON.parse(localStorage.getItem(key))??fallback}catch{return fallback}}
+const SWEDISH_COUNTIES = [
+  'Blekinge län','Dalarnas län','Gotlands län','Gävleborgs län','Hallands län','Jämtlands län',
+  'Jönköpings län','Kalmar län','Kronobergs län','Norrbottens län','Skåne län','Stockholms län',
+  'Södermanlands län','Uppsala län','Värmlands län','Västerbottens län','Västernorrlands län',
+  'Västmanlands län','Västra Götalands län','Örebro län','Östergötlands län'
+];
+function addressCounty(a={}){
+  for(const raw of [a.state,a.state_district,a.county]){
+    if(!raw)continue;
+    const n=normalizeCounty(raw);
+    if(SWEDISH_COUNTIES.some(x=>normalizeCounty(x)===n))return n;
+  }
+  return '';
+}
+function addressMunicipality(a={}){
+  const raw=a.municipality||a.city_district||a.county||a.city||a.town||a.village||'';
+  return raw?normalizeMunicipality(raw):'';
+}
+function repairSavedLocation(loc){
+  const x={...loc};
+  if(x.county)x.county=normalizeCounty(x.county);
+  if(x.municipality)x.municipality=normalizeMunicipality(x.municipality);
+  const name=(x.name||'').toLowerCase();
+  const municipality=(x.municipality||'').toLowerCase();
+  if(!x.county&&(name.includes('luleå')||name.includes('kallax')||municipality.includes('luleå')))x.county='Norrbottens län';
+  return inferSpecialAreas(x);
+}
 
 const state={
-  location:inferSpecialAreas(load('jaktkalender.location',structuredClone(DEFAULT_LOCATION))),
+  location:repairSavedLocation(load('jaktkalender.location',structuredClone(DEFAULT_LOCATION))),
   selected:new Set(load('jaktkalender.species',DEFAULT_SELECTED)),view:'year',anchor:stockholmToday(),displayMode:'selected'
 };
 let locationDraft=structuredClone(state.location),selectedDraft=new Set(state.selected),map=null,marker=null,reverseTimer=null,lastNominatimAt=0;
@@ -285,8 +312,8 @@ function mapInit(){
 async function nom(url){const wait=Math.max(0,1100-(Date.now()-lastNominatimAt));if(wait)await new Promise(r=>setTimeout(r,wait));lastNominatimAt=Date.now();const x=await fetch(url,{headers:{Accept:'application/json'}});if(!x.ok)throw Error(x.status);return x.json()}
 const placeName=x=>{const a=x.address||{};return a.city||a.town||a.village||a.hamlet||a.municipality||x.name||String(x.display_name||'Vald plats').split(',')[0]};
 async function search(){const q=$('placeSearch').value.trim();if(q.length<2)return;$('searchStatus').textContent='Söker…';$('searchResults').innerHTML='';try{const data=await nom(`https://nominatim.openstreetmap.org/search?format=jsonv2&countrycodes=se&limit=8&addressdetails=1&accept-language=sv&q=${encodeURIComponent(q)}`);$('searchStatus').textContent=data.length?`${data.length} träffar`:'Ingen träff';$('searchResults').innerHTML=data.map((x,i)=>`<button type="button" class="search-result" data-result="${i}"><strong>${esc(placeName(x))}</strong><small>${esc([x.address?.state,x.address?.municipality||x.address?.county].filter(Boolean).join(' · '))}</small></button>`).join('');$('searchResults').querySelectorAll('[data-result]').forEach(b=>b.addEventListener('click',()=>applyPlace(data[+b.dataset.result])))}catch{$('searchStatus').textContent='Sökningen kunde inte nå karttjänsten.'}}
-function applyPlace(x){const a=x.address||{};locationDraft=inferSpecialAreas({name:placeName(x),lat:+x.lat,lon:+x.lon,county:a.state||'',municipality:a.municipality||a.county||'',special:{}});updateLocation();if(map){map.flyTo({center:[locationDraft.lon,locationDraft.lat],zoom:10});marker.setLngLat([locationDraft.lon,locationDraft.lat])}}
-function coords(lat,lon,reverse=false){locationDraft={...locationDraft,lat,lon,name:'Vald punkt'};updateLocation();if(reverse){clearTimeout(reverseTimer);reverseTimer=setTimeout(async()=>{try{const x=await nom(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=12&addressdetails=1&accept-language=sv`),a=x.address||{};locationDraft=inferSpecialAreas({...locationDraft,name:placeName(x),county:a.state||'',municipality:a.municipality||a.county||'',special:locationDraft.special||{}});updateLocation()}catch{}},500)}}
+function applyPlace(x){const a=x.address||{};locationDraft=repairSavedLocation({name:placeName(x),lat:+x.lat,lon:+x.lon,county:addressCounty(a),municipality:addressMunicipality(a),special:{}});updateLocation();if(map){map.flyTo({center:[locationDraft.lon,locationDraft.lat],zoom:10});marker.setLngLat([locationDraft.lon,locationDraft.lat])}}
+function coords(lat,lon,reverse=false){locationDraft={...locationDraft,lat,lon,name:'Vald punkt'};updateLocation();if(reverse){clearTimeout(reverseTimer);reverseTimer=setTimeout(async()=>{try{const x=await nom(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=12&addressdetails=1&accept-language=sv`),a=x.address||{};locationDraft=repairSavedLocation({...locationDraft,name:placeName(x),county:addressCounty(a),municipality:addressMunicipality(a),special:locationDraft.special||{}});updateLocation()}catch{}},500)}}
 function geolocate(){if(!navigator.geolocation){$('searchStatus').textContent='Webbläsaren har inte platsstöd.';return}$('searchStatus').textContent='Hämtar din position…';navigator.geolocation.getCurrentPosition(p=>{const{latitude:lat,longitude:lon}=p.coords;$('searchStatus').textContent='';marker?.setLngLat([lon,lat]);map?.flyTo({center:[lon,lat],zoom:11});coords(lat,lon,true)},()=>$('searchStatus').textContent='Kunde inte läsa positionen.',{timeout:10000})}
 
 document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{state.view=b.dataset.view;renderAll()}));
@@ -296,7 +323,7 @@ $('showRelevant').addEventListener('click',()=>{state.displayMode='relevant';ren
 $('searchPlaceButton').addEventListener('click',search);$('placeSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();search()}});$('myLocationButton').addEventListener('click',geolocate);
 $('selectAllRelevant').addEventListener('click',()=>{const r=range();SPECIES.filter(s=>speciesRelevant(s.id,state.location,r.start,r.end)).forEach(s=>selectedDraft.add(s.id));renderSpecies()});$('clearSpecies').addEventListener('click',()=>{selectedDraft.clear();renderSpecies()});
 $('saveSpeciesButton').addEventListener('click',e=>{e.preventDefault();state.selected=new Set(selectedDraft);localStorage.setItem('jaktkalender.species',JSON.stringify([...state.selected]));state.displayMode='selected';$('speciesDialog').close();renderAll()});
-$('saveLocationButton').addEventListener('click',e=>{e.preventDefault();state.location=inferSpecialAreas(structuredClone(locationDraft));localStorage.setItem('jaktkalender.location',JSON.stringify(state.location));$('locationDialog').close();renderAll()});
+$('saveLocationButton').addEventListener('click',e=>{e.preventDefault();state.location=repairSavedLocation(structuredClone(locationDraft));localStorage.setItem('jaktkalender.location',JSON.stringify(state.location));$('locationDialog').close();renderAll()});
 document.querySelectorAll('[data-close-dialog]').forEach(b=>b.addEventListener('click',()=>$(b.dataset.closeDialog)?.close()));
 
 const scroller=$('timelineScroller');
