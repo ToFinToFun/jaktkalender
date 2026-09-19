@@ -1,45 +1,83 @@
 # Jaktkalender
 
-En visuell svensk jaktkalender som visar **när jaktsäsonger infaller** för vald plats.
+En visuell svensk jaktkalender för **säsonger, plats och sol**.
 
-## Projektets scope
+Jaktkalendern visar fasta svenska jaktsäsonger som en tidslinje. Användaren väljer plats och arter och kan växla mellan jaktår, månad, vecka och dag. På vecka/dag räknas solstyrda tidsfönster ut för den valda platsen, så nattluckor och fasta specialperioder syns direkt.
 
-Jaktkalendern ska visa:
+> Projektet är en säsongskalender – inte en kontroll av om en viss person har rätt att jaga vid ett visst tillfälle. Kvoter, avlysningar, personliga tillstånd, jakträtt och tillfälliga beslut följs inte.
 
-- vilka arter som har jaktsäsong under olika delar av året
-- geografiska skillnader i fasta jakttider
-- fasta skillnader för kön/ålder när de påverkar säsongen
-- fasta dygnsbegränsningar
-- solberoende tider beräknade för vald plats
-- fasta delperioder, till exempel "endast smyg- eller vaktjakt"
-- fasta nationella tidsramar för licensjakt på stora rovdjur
+## Funktioner
 
-Jaktkalendern ska **inte** avgöra om jakt är tillåten för en viss person vid ett visst tillfälle.
+- jaktår, månad, vecka och dag
+- platsanpassad soluppgång/solnedgång beräknad lokalt
+- tidslinjer per art
+- särskild markering för fasta delperioder, till exempel smyg-/vaktjakt
+- fasta licensjaktsfönster för stora rovdjur
+- artval och snabbval per artgrupp
+- platsökning i Sverige
+- kartnål och valfri webbläsarposition
+- responsiv layout för mobil och desktop
+- regelversioner för kända ändringar från 1 juli 2027
+- officiella källor direkt i detaljvyn
 
-Den ska därför inte följa eller bedöma:
+## Datakällor
 
-- tilldelningar och kvoter
-- avlysningar när kvoten är fylld
-- personliga tillstånd
-- jakträtt
-- tillfälliga skyddsjaktsbeslut
-- vapen- eller ammunitionsregler
-- andra villkor som inte definierar själva säsongen eller tiden på dygnet
+Primära källor:
 
-Tanken är att sidan ska vara relevant både för jägare och andra som vill kunna se exempelvis att det är älg-, rådjur- eller björnjaktsäsong på en viss plats.
+- [Jaktförordning (1987:905), Sveriges riksdag](https://www.riksdagen.se/sv/dokument-och-lagar/dokument/svensk-forfattningssamling/jaktforordning-1987905_sfs-1987-905/)
+- [NFS 2022:4, Naturvårdsverket](https://www.naturvardsverket.se/lagar-och-regler/foreskrifter-och-allmanna-rad/2022/nfs-2022-4/)
 
-## Arbetsordning
+Se `docs/rule-audit.md` för avgränsningar och regelgranskning och `docs/data-sources.md` för datakällorna i appen.
 
-1. Verifiera och strukturera samtliga fasta jakttider från officiella källor.
-2. Identifiera geografiska och tidsmässiga specialfall.
-3. Låsa datamodellen.
-4. Låsa plats- och solmodellen.
-5. Ta fram visuell design.
-6. Bygga responsiv webbapp för mobil och desktop.
-7. Driftsätta via Coolify.
+## Teknik
 
-Se [docs/rule-audit.md](docs/rule-audit.md) för regelgranskningen.
+Webbappen är medvetet byggd utan framework eller byggsteg:
 
-## Status
+- HTML
+- modern CSS
+- ES modules / JavaScript
+- MapLibre GL JS för kartan
+- OpenFreeMap för fria karttiles
+- Nominatim för användarinitierad ortsökning/reverse geocoding
+- Nginx i Docker för publicering
 
-**Fas 1: regelgranskning pågår. Ingen UI-kod är påbörjad ännu.**
+Regelmotorn och solberäkningen körs helt i webbläsaren. Kart- och ortsökning kräver internet men kalendern och beräkningarna har ingen serverbackend.
+
+## Köra lokalt på Linux
+
+Ingen lokal webbserver behöver installeras permanent. Från repot:
+
+```bash
+python3 -m http.server 8080
+```
+
+Öppna sedan `http://localhost:8080`.
+
+För att testa från en telefon på samma nät:
+
+```bash
+python3 -m http.server 8080 --bind 0.0.0.0
+```
+
+och öppna datorns LAN-IP på port 8080.
+
+## Docker
+
+```bash
+docker build -t jaktkalender .
+docker run --rm -p 8080:80 jaktkalender
+```
+
+## Coolify
+
+1. Skapa en ny resurs från GitHub-repot.
+2. Välj Dockerfile-baserad deploy.
+3. Intern port är `80`.
+4. Lägg till önskad domän/subdomän.
+5. Deploy.
+
+Inga environment variables behövs.
+
+## Geografiska specialområden
+
+Vanliga län/kommuner hämtas från platsvalet. Några fasta jaktgeografier följer inte vanliga kommungränser, exempelvis gränsälvsområdet, lappmarksgränsen, odlingsgränsen och kronhjortsområden. För dessa finns explicita val i platsdialogen när de är relevanta. Det undviker att sidan låtsas ha större geografisk precision än kart-/adressuppgiften faktiskt ger.
