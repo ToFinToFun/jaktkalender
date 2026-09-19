@@ -1,6 +1,7 @@
 import { DEFAULT_LOCATION, DEFAULT_SELECTED } from './data.js';
 import { SPECIES, GROUPS, activeRules, matchingRules, seasonState, dailySegments, sunSummary, describeDailyRule, speciesRelevant, sourceFor, periodLabel, inferSpecialAreas } from './rules.js';
-import { adviceFor } from './advice.js';
+import { adviceFor, activityWindowFor } from './advice.js';
+import { getSunTimes, getCivilTwilightTimes, stockholmMinutes, roundMinutes } from './sun.js';
 
 const $=id=>document.getElementById(id);
 const df=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',weekday:'long',day:'numeric',month:'long',year:'numeric'});
@@ -108,6 +109,59 @@ function hourlySegments(id,r){
   raw.sort((a,b)=>a.start-b.start);const merged=[];for(const x of raw){const p=merged.at(-1);if(p&&p.state===x.state&&p.end===x.start)p.end=x.end;else merged.push({...x})}
   return merged.map(x=>({left:x.start/total*100,width:(x.end-x.start)/total*100,state:x.state,startAbs:x.start,endAbs:x.end}));
 }
+function activitySegmentsForDay(id,date){
+  const profile=activityWindowFor(id);
+  if(!profile||seasonState(id,date,state.location)==='off')return [];
+  const sun=getSunTimes(date,state.location.lat,state.location.lon);
+  const twilight=getCivilTwilightTimes(date,state.location.lat,state.location.lon);
+  const rise=stockholmMinutes(sun.sunrise),set=stockholmMinutes(sun.sunset);
+  const dawn=stockholmMinutes(twilight.dawn),dusk=stockholmMinutes(twilight.dusk);
+  if(rise===null||set===null)return [];
+  const round=v=>clamp(roundMinutes(v,15),0,1440);
+  let windows=[];
+  if(profile.profile==='dawnDusk'){
+    if(dawn!==null)windows.push({start:round(dawn),end:round(rise+(profile.morningAfterSunrise||60))});
+    if(dusk!==null)windows.push({start:round(set-(profile.eveningBeforeSunset||60)),end:round(dusk)});
+  }else if(profile.profile==='night'){
+    if(dawn!==null)windows.push({start:0,end:round(dawn)});
+    windows.push({start:round(set),end:1440});
+  }else if(profile.profile==='afterSunset'){
+    const span=(profile.hours||7)*60;
+    const eveningStart=round(set),eveningEnd=set+span;
+    windows.push({start:eveningStart,end:round(Math.min(1440,eveningEnd))});
+    const previous=addDays(date,-1),prevSun=getSunTimes(previous,state.location.lat,state.location.lon),prevSet=stockholmMinutes(prevSun.sunset);
+    if(prevSet!==null){
+      const carry=prevSet+span-1440;
+      if(carry>0)windows.push({start:0,end:round(Math.min(1440,carry))});
+    }
+  }
+  const legal=dailySegments(id,date,state.location).filter(x=>x.state!=='uncertain');
+  const clipped=[];
+  for(const w of windows)for(const l of legal){
+    const start=Math.max(w.start,l.start),end=Math.min(w.end,l.end);
+    if(end>start)clipped.push({start,end});
+  }
+  clipped.sort((a,b)=>a.start-b.start);
+  const merged=[];
+  for(const x of clipped){
+    const p=merged.at(-1);
+    if(p&&x.start<=p.end)p.end=Math.max(p.end,x.end);else merged.push({...x});
+  }
+  return merged;
+}
+function activityHourlySegments(id,r){
+  const days=daysBetween(r.start,r.end)+1,total=days*1440,raw=[];
+  for(let i=0;i<days;i++)for(const x of activitySegmentsForDay(id,addDays(r.start,i)))raw.push({start:i*1440+x.start,end:i*1440+x.end});
+  return raw.map(x=>({left:x.start/total*100,width:(x.end-x.start)/total*100,startAbs:x.start,endAbs:x.end}));
+}
+function renderActivitySegments(id,r){
+  if(state.view!=='week'&&state.view!=='day')return '';
+  return activityHourlySegments(id,r).map(x=>`<span class="activity-segment" style="left:${x.left}%;width:${x.width}%" title="Ofta gynnsam tid"></span>`).join('');
+}
+function activityTextForDay(id,date){
+  const segs=activitySegmentsForDay(id,date);
+  return segs.map(x=>`${clock(x.start)}–${clock(x.end)}`).join(' · ');
+}
 function segmentLabels(seg,nav,current){
   if(state.view==='day'||state.view==='week'){
     const startDay=Math.floor(seg.startAbs/1440),endPoint=Math.max(0,seg.endAbs-1),endDay=Math.floor(endPoint/1440);
@@ -165,7 +219,7 @@ function renderTimeline(){
   const current=range(),nav=navigationRange(current);$('periodTitle').textContent=current.label;$('periodContext').textContent=current.context;const t=$('timeline');t.className=`timeline ${state.view}`;t.style.width='300%';
   const sp=visible(current);$('emptyState').hidden=sp.length>0;
   const head=`<div class="timeline-header"><div class="timeline-header-label">Art</div><div class="timeline-scale">${markers(nav).map(m=>`<i class="scale-marker" style="left:${m.left}%"><span>${esc(m.label)}</span></i>`).join('')}${nowScaleMarker(nav)}</div></div>`;
-  t.innerHTML=head+sp.map(s=>{const seg=(state.view==='week'||state.view==='day'?hourlySegments:seasonSegments)(s.id,nav);return `<div class="timeline-row"><button type="button" class="species-cell" data-label="${s.id}"><strong>${esc(s.name)}</strong><small>${esc(subtitle(s.id))}</small></button><div class="track" data-track="${s.id}">${seg.map(x=>renderSegment(x,nav,current)).join('')}${nowLine(nav)}</div></div>`}).join('');
+  t.innerHTML=head+sp.map(s=>{const seg=(state.view==='week'||state.view==='day'?hourlySegments:seasonSegments)(s.id,nav);return `<div class="timeline-row"><button type="button" class="species-cell" data-label="${s.id}"><strong>${esc(s.name)}</strong><small>${esc(subtitle(s.id))}</small></button><div class="track" data-track="${s.id}">${seg.map(x=>renderSegment(x,nav,current)).join('')}${renderActivitySegments(s.id,nav)}${nowLine(nav)}</div></div>`}).join('');
   t.querySelectorAll('[data-label]').forEach(x=>x.addEventListener('click',()=>detail(x.dataset.label,state.anchor)));
   t.querySelectorAll('[data-track]').forEach(x=>x.addEventListener('click',e=>{if($('timelineScroller').classList.contains('dragging'))return;const q=clamp((e.clientX-x.getBoundingClientRect().left)/x.getBoundingClientRect().width,0,.99999);detail(x.dataset.track,addDays(nav.start,Math.floor(q*(daysBetween(nav.start,nav.end)+1))))}));
   alignScroller(nav,current);
@@ -190,6 +244,7 @@ function detail(id,date){
   const adviceHtml=advice?`
     <section class="advice-card">
       <div class="advice-heading"><span>Praktiskt jaktläge</span><small>Råd – inte jaktregel</small></div>
+      ${activityTextForDay(id,date)?`<div class="advice-row"><strong>Markerad tid idag</strong><p>${esc(activityTextForDay(id,date))} · avrundat till 15 min</p></div>`:''}
       ${advice.best?`<div class="advice-row"><strong>Ofta bäst</strong><p>${esc(advice.best)}</p></div>`:''}
       ${advice.conditions?`<div class="advice-row"><strong>Gynnsamma förhållanden</strong><p>${esc(advice.conditions)}</p></div>`:''}
       ${advice.method?`<div class="advice-row"><strong>Jaktform</strong><p>${esc(advice.method)}</p></div>`:''}
