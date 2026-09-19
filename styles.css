@@ -244,3 +244,20 @@ h1 { margin: 0; font-size: clamp(34px, 5vw, 60px); line-height: .98; letter-spac
   .advice-row { grid-template-columns: 1fr; gap: 4px; }
   .advice-heading { align-items: flex-start; flex-direction: column; gap: 3px; }
 }
+
+.activity-segment {
+  position: absolute;
+  top: 23px;
+  height: 10px;
+  min-width: 2px;
+  z-index: 4;
+  border-radius: 2px;
+  background: #d5a84c;
+  border: 1px solid rgba(100,76,25,.35);
+  box-shadow: 0 0 0 1px rgba(255,250,232,.28) inset;
+  pointer-events: none;
+}
+.legend-swatch.activity {
+  background: #d5a84c;
+  border: 1px solid rgba(100,76,25,.35);
+}
