@@ -109,3 +109,20 @@ export const HUNTING_ADVICE = {
 export function adviceFor(speciesId) {
   return HUNTING_ADVICE[speciesId] || null;
 }
+
+
+export const ACTIVITY_WINDOWS = {
+  alg: { profile: 'dawnDusk', morningAfterSunrise: 60, eveningBeforeSunset: 60 },
+  radjur: { profile: 'dawnDusk', morningAfterSunrise: 60, eveningBeforeSunset: 60 },
+  kronhjort: { profile: 'dawnDusk', morningAfterSunrise: 60, eveningBeforeSunset: 60 },
+  dovhjort: { profile: 'dawnDusk', morningAfterSunrise: 60, eveningBeforeSunset: 60 },
+  vildsvin: { profile: 'afterSunset', hours: 7 },
+  rodrav: { profile: 'dawnDusk', morningAfterSunrise: 90, eveningBeforeSunset: 90 },
+  baver: { profile: 'dawnDusk', morningAfterSunrise: 60, eveningBeforeSunset: 60 },
+  gravling: { profile: 'night' },
+  grasand: { profile: 'dawnDusk', morningAfterSunrise: 60, eveningBeforeSunset: 60 }
+};
+
+export function activityWindowFor(speciesId) {
+  return ACTIVITY_WINDOWS[speciesId] || null;
+}
