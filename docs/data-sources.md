@@ -23,7 +23,7 @@ Används endast för fasta tidsramar för licensjakt på stora rovdjur:
 - järv
 - lodjur
 
-Kalendern följer inte beslutade kvoter eller om ett års jakt har avlysts.
+Kalendern följer inte beslutade kvoter eller om ett års jakt har avlysts. Skyddsjakt enligt jaktförordningens bilaga 4 ingår inte; projektet fokuserar på ordinarie säsonger och de fasta rovdjursfönster som uttryckligen valts in.
 
 ## Plats och karta
 
