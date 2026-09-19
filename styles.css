@@ -87,13 +87,13 @@ h1 { margin: 0; font-size: clamp(34px, 5vw, 60px); line-height: .98; letter-spac
 .timeline.day { min-width: 760px; }
 .timeline-header, .timeline-row { display: grid; grid-template-columns: var(--species-col) minmax(0,1fr); }
 .timeline-header { position: sticky; top: 0; z-index: 4; background: #efebe1; border-bottom: 1px solid var(--line); }
-.timeline-header-label { padding: 10px 15px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .09em; border-right: 1px solid var(--line); }
+.timeline-header-label { position: sticky; left: 0; z-index: 12; background: #efebe1; padding: 10px 15px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .09em; border-right: 1px solid var(--line); }
 .timeline-scale { position: relative; min-height: 42px; }
 .scale-marker { position: absolute; top: 0; bottom: 0; border-left: 1px solid rgba(82,86,79,.16); }
 .scale-marker span { position: absolute; top: 11px; left: 7px; white-space: nowrap; font-size: 11px; color: var(--muted); }
 .timeline-row { min-height: 57px; border-bottom: 1px solid rgba(212,206,191,.72); }
 .timeline-row:last-child { border-bottom: 0; }
-.species-cell { position: sticky; left: 0; z-index: 3; background: #f5f2ea; border-right: 1px solid var(--line); padding: 10px 14px; display: flex; flex-direction: column; justify-content: center; cursor: pointer; }
+.species-cell { position: sticky; left: 0; z-index: 10; background: #f5f2ea; border-right: 1px solid var(--line); padding: 10px 14px; display: flex; flex-direction: column; justify-content: center; cursor: pointer; box-shadow: 6px 0 10px -10px rgba(24,36,29,.55); }
 .species-cell strong { font-size: 14px; font-weight: 700; }
 .species-cell small { color: var(--muted); font-size: 10px; line-height: 1.25; margin-top: 3px; max-width: 155px; }
 .track { position: relative; min-height: 57px; cursor: crosshair; background-image: linear-gradient(to right, rgba(55,65,58,.035) 1px, transparent 1px); background-size: calc(100% / 12) 100%; }
