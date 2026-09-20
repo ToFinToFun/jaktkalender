@@ -120,6 +120,10 @@ export const ACTIVITY_WINDOWS = {
   rodrav: { profile: 'dawnDusk', morningAfterSunrise: 90, eveningBeforeSunset: 90 },
   baver: { profile: 'dawnDusk', morningAfterSunrise: 60, eveningBeforeSunset: 60 },
   gravling: { profile: 'night' },
+  skogshare: { profile: 'morning', morningAfterSunrise: 120 },
+  falthare: { profile: 'morning', morningAfterSunrise: 120 },
+  orre: { profile: 'dawnDusk', morningAfterSunrise: 120, eveningBeforeSunset: 60 },
+  tjader: { profile: 'dawnDusk', morningAfterSunrise: 90, eveningBeforeSunset: 60 },
 
   blasgas: { profile: 'dawnDusk', morningAfterSunrise: 120, eveningBeforeSunset: 60 },
   gragas: { profile: 'dawnDusk', morningAfterSunrise: 120, eveningBeforeSunset: 60 },
