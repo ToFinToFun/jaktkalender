@@ -386,3 +386,22 @@ h1 { margin: 0; font-size: clamp(34px, 5vw, 60px); line-height: .98; letter-spac
   background: #d5a84c;
   box-shadow: 0 0 0 1px rgba(100,76,25,.18);
 }
+
+/* Keep legal edge times and golden-time labels on separate lanes. */
+.timeline-row,
+.track { min-height: 66px; }
+
+.edge-label.start,
+.edge-label.end {
+  top: -14px;
+}
+
+.activity-time-label {
+  top: 27px;
+}
+
+.activity-time-label.morning,
+.activity-time-label.evening {
+  left: 50%;
+  transform: translateX(-50%);
+}
