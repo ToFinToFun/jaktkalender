@@ -225,8 +225,9 @@ function renderActivitySegments(id,r,current){
     const startDate=addDays(r.start,startDay),endDate=addDays(r.start,endDay);
     const startMinute=x.startAbs%1440,endMinute=x.endAbs%1440||1440;
     const label=`${clock(startMinute)}–${clock(endMinute)}`;
+    const periodClass=startMinute<12*60?'morning':'evening';
     const showLabel=state.view==='day'&&startDate>=current.start&&endDate<=current.end;
-    return `<span class="activity-segment" style="left:${x.left}%;width:${x.width}%" title="Gyllene tid ${label}">${showLabel?`<b class="activity-time-label"><i></i>${label}</b>`:''}</span>`;
+    return `<span class="activity-segment ${periodClass}" style="left:${x.left}%;width:${x.width}%" title="Gyllene tid ${label} · civil gryning/skymning, avrundat till 15 min">${showLabel?`<b class="activity-time-label ${periodClass}"><i></i>${label}</b>`:''}</span>`;
   }).join('');
 }
 function activityTextForDay(id,date){
