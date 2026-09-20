@@ -184,6 +184,8 @@ function activitySegmentsForDay(id,date){
   if(profile.profile==='dawnDusk'){
     if(dawn!==null)windows.push({start:round(dawn),end:round(rise+(profile.morningAfterSunrise||60))});
     if(dusk!==null)windows.push({start:round(set-(profile.eveningBeforeSunset||60)),end:round(dusk)});
+  }else if(profile.profile==='morning'){
+    if(dawn!==null)windows.push({start:round(dawn),end:round(rise+(profile.morningAfterSunrise||120))});
   }else if(profile.profile==='night'){
     if(dawn!==null)windows.push({start:0,end:round(dawn)});
     windows.push({start:round(set),end:1440});
