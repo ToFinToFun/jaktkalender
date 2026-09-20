@@ -216,9 +216,18 @@ function activityHourlySegments(id,r){
   for(let i=0;i<days;i++)for(const x of activitySegmentsForDay(id,addDays(r.start,i)))raw.push({start:i*1440+x.start,end:i*1440+x.end});
   return raw.map(x=>({left:x.start/total*100,width:(x.end-x.start)/total*100,startAbs:x.start,endAbs:x.end}));
 }
-function renderActivitySegments(id,r){
+function renderActivitySegments(id,r,current){
   if(state.view!=='week'&&state.view!=='day')return '';
-  return activityHourlySegments(id,r).map(x=>`<span class="activity-segment" style="left:${x.left}%;width:${x.width}%" title="Ofta gynnsam tid"></span>`).join('');
+  return activityHourlySegments(id,r).map(x=>{
+    const startDay=Math.floor(x.startAbs/1440);
+    const endPoint=Math.max(x.startAbs,x.endAbs-1);
+    const endDay=Math.floor(endPoint/1440);
+    const startDate=addDays(r.start,startDay),endDate=addDays(r.start,endDay);
+    const startMinute=x.startAbs%1440,endMinute=x.endAbs%1440||1440;
+    const label=`${clock(startMinute)}–${clock(endMinute)}`;
+    const showLabel=state.view==='day'&&startDate>=current.start&&endDate<=current.end;
+    return `<span class="activity-segment" style="left:${x.left}%;width:${x.width}%" title="Gyllene tid ${label}">${showLabel?`<b class="activity-time-label"><i></i>${label}</b>`:''}</span>`;
+  }).join('');
 }
 function activityTextForDay(id,date){
   const segs=activitySegmentsForDay(id,date);
@@ -407,7 +416,7 @@ function renderTimeline(){
   const current=range(),nav=navigationRange(current);$('periodTitle').textContent=current.label;$('periodContext').textContent=current.context;const t=$('timeline');t.className=`timeline ${state.view}`;t.style.width='300%';
   const sp=visible(current);$('emptyState').hidden=sp.length>0;
   const head=`<div class="timeline-header"><div class="timeline-header-label">Art</div><div class="timeline-scale">${markers(nav).map(m=>`<i class="scale-marker" style="left:${m.left}%"><span>${esc(m.label)}</span></i>`).join('')}${nowScaleMarker(nav)}</div></div>`;
-  t.innerHTML=head+sp.map(s=>{const seg=(state.view==='week'||state.view==='day'?hourlySegments:seasonSegments)(s.id,nav);return `<div class="timeline-row"><button type="button" class="species-cell" data-label="${s.id}"><strong>${esc(s.name)}</strong><small>${esc(subtitle(s.id))}</small></button><div class="track" data-track="${s.id}">${seg.map(x=>renderSegment(x,nav,current)).join('')}${renderActivitySegments(s.id,nav)}${renderWeatherSegments(s.id,nav)}${nowLine(nav)}</div></div>`}).join('');
+  t.innerHTML=head+sp.map(s=>{const seg=(state.view==='week'||state.view==='day'?hourlySegments:seasonSegments)(s.id,nav);return `<div class="timeline-row"><button type="button" class="species-cell" data-label="${s.id}"><strong>${esc(s.name)}</strong><small>${esc(subtitle(s.id))}</small></button><div class="track" data-track="${s.id}">${seg.map(x=>renderSegment(x,nav,current)).join('')}${renderActivitySegments(s.id,nav,current)}${renderWeatherSegments(s.id,nav)}${nowLine(nav)}</div></div>`}).join('');
   t.querySelectorAll('[data-label]').forEach(x=>x.addEventListener('click',()=>detail(x.dataset.label,state.anchor)));
   t.querySelectorAll('[data-track]').forEach(x=>x.addEventListener('click',e=>{if($('timelineScroller').classList.contains('dragging'))return;const q=clamp((e.clientX-x.getBoundingClientRect().left)/x.getBoundingClientRect().width,0,.99999);detail(x.dataset.track,addDays(nav.start,Math.floor(q*(daysBetween(nav.start,nav.end)+1))))}));
   alignScroller(nav,current);
